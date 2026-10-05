@@ -1,0 +1,19 @@
+{
+  "name": "tripo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tripo — AI travel agent (English + বাংলা)",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "next": "^16.3.8",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  }
+}
