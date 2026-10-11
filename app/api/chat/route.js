@@ -1,6 +1,8 @@
 // Tripo AI endpoint: POST /api/chat  { messages: [{ role: "user"|"assistant", content }] }  ->  { text }
 // Talks to Google Gemini with the server-only GEMINI_API_KEY. The key never reaches the browser.
 
+import { rateLimited } from "@/lib/server/ratelimit";
+
 export const dynamic = "force-dynamic";
 
 // Flash-Lite answers in a few seconds and is rarely overloaded, so it is the default.
@@ -11,28 +13,7 @@ const ATTEMPT_TIMEOUT_MS = 20_000; // give up on a stuck model instead of freezi
 const MAX_TURNS = 30;
 const MAX_CHARS = 8000; // per message
 const MAX_BODY_BYTES = 200_000;
-const PER_MINUTE = 15; // requests per visitor per minute (best effort, per server instance)
-
-const hits = new Map();
-function rateLimited(ip) {
-  const now = Date.now();
-  const recent = (hits.get(ip) || []).filter((t) => now - t < 60_000);
-  recent.push(now);
-  hits.set(ip, recent);
-  if (hits.size > 5000) {
-    for (const [k, v] of hits) if (!v.length || now - v[v.length - 1] > 60_000) hits.delete(k);
-  }
-  return recent.length > PER_MINUTE;
-}
-
-function clientIp(req) {
-  return (
-    req.headers.get("x-nf-client-connection-ip") ||
-    (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() ||
-    req.headers.get("x-real-ip") ||
-    "unknown"
-  );
-}
+const PER_MINUTE = 15; // requests per visitor per minute
 
 const json = (status, body) => Response.json(body, { status });
 
@@ -43,7 +24,7 @@ export async function POST(req) {
   if (Number(req.headers.get("content-length") || 0) > MAX_BODY_BYTES) {
     return json(413, { error: "too_large" });
   }
-  if (rateLimited(clientIp(req))) return json(429, { error: "rate_limited" });
+  if (rateLimited("chat", req, PER_MINUTE)) return json(429, { error: "rate_limited" });
 
   let body;
   try {

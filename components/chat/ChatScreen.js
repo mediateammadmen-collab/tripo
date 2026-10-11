@@ -5,12 +5,16 @@ import { useRouter } from "next/navigation";
 import Icon from "@/components/ui/Icon";
 import { Scene, RichText } from "@/components/ui/Scene";
 import { useTripo } from "@/lib/tripo/store";
-import { useLang, useWide } from "@/lib/tripo/hooks";
+import { useLang, useMedia } from "@/lib/tripo/hooks";
+import { usePins } from "@/lib/tripo/usePins";
+import { pointsFromBlocks } from "@/lib/tripo/places";
+import { accountsEnabled } from "@/lib/supabase/client";
+import MapView from "@/components/map/MapView";
 import { L, t } from "@/lib/tripo/i18n";
 import { TABS, CONTENT } from "@/lib/tripo/content";
 import { runtime, whatsappUrl } from "@/lib/tripo/travel";
 import { openVoice } from "@/lib/tripo/voice";
-import { Places, Itinerary, FlightCard, HotelCard } from "./Cards";
+import { Places, Itinerary, FlightCard, HotelCard, showPlace } from "./Cards";
 
 /* Opens the real-person help: WhatsApp when a number is configured, otherwise the in-app pane. */
 export function openExpert() {
@@ -132,12 +136,11 @@ function Block({ b }) {
 }
 
 /* ---------------- the Tripo conversation ---------------- */
-function AiThread({ active, onBack }) {
+function AiThread({ active, onBack, pinCount }) {
   const router = useRouter();
   const blocks = useTripo((s) => s.blocks);
   const ready = useTripo((s) => s.ready);
   const send = useTripo((s) => s.sendChatMessage);
-  const setInvite = useTripo((s) => s.setInvite);
   const showTrips = useTripo((s) => s.showTrips);
   const showToast = useTripo((s) => s.showToast);
   const [text, setText] = useState("");
@@ -190,10 +193,14 @@ function AiThread({ active, onBack }) {
           <span>Tripo</span>
           <span className="head-status" id="headStatus">{t("headStatus")}</span>
         </div>
+        <button className="head-btn map-toggle" id="aiMapBtn" aria-label={L("Show the map", "ম্যাপ দেখুন")} title={L("Map", "ম্যাপ")} onClick={() => useTripo.getState().setMapOpen(true)}>
+          <Icon name="map" size={19} />
+          {pinCount > 0 && <span className="map-count">{pinCount}</span>}
+        </button>
         <button className="head-btn" id="aiVoiceBtn" aria-label="Voice conversation" title={L("Talk to Tripo", "Tripo-র সাথে কথা বলুন")} onClick={openVoice}><Icon name="wave" size={19} sw={2.2} /></button>
         <button className="head-btn" id="aiSavedBtn" aria-label="My plan" title={L("My plan", "আমার প্ল্যান")} onClick={() => { showTrips("trips", null); router.push("/trips"); }}><Icon name="bookmark" size={19} /></button>
         <button className="head-btn" id="aiExpertBtn" aria-label="Talk to a real travel expert" title={L("Talk to a real person", "আসল মানুষের সাথে কথা বলুন")} onClick={openExpert}><Icon name="headset" size={19} /></button>
-        <button className="head-btn" id="inviteOpenBtn2" aria-label="Invite friends" onClick={() => setInvite(true)}><Icon name="userPlus" size={19} /></button>
+        <button className="head-btn" id="newChatBtn2" aria-label={L("New chat", "নতুন চ্যাট")} title={L("New chat", "নতুন চ্যাট")} onClick={() => useTripo.getState().newChat()}><Icon name="plus" size={20} sw={2.2} /></button>
       </div>
 
       <div className="body" id="chatBody" ref={bodyRef}>
@@ -242,38 +249,93 @@ function ExpertThread({ active, onBack }) {
   );
 }
 
+/* ---------------- the map beside the conversation ---------------- */
+function ChatMap({ points, pins, lines }) {
+  // Frame the newest suggestions (everything from Tripo's latest answer that has places).
+  const lastBlock = points.length ? points[points.length - 1].block : "";
+  const newest = points.filter((p) => p.block === lastBlock).map((p) => p.key);
+  const mapFocus = useTripo((s) => s.mapFocus);
+  const mapOpen = useTripo((s) => s.mapOpen);
+  const chatId = useTripo((s) => s.chatId);
+  const select = (key) => {
+    const p = points.find((x) => x.key === key);
+    if (p) showPlace(p.kind, p.kind === "stop" ? { name: p.name, context: p.query.context } : p.data, p.query.context);
+  };
+  return (
+    <div className={"chat-map" + (mapOpen ? " open" : "")} id="chatMap">
+      <MapView
+        points={pins}
+        lines={lines}
+        focusKey={mapFocus}
+        onSelect={select}
+        fitKey={(chatId || "new") + lastBlock}
+        fitTo={newest}
+        emptyHint={L("Places Tripo suggests will appear here on the map.", "Tripo যে জায়গাগুলো সাজেস্ট করবে সেগুলো এখানে ম্যাপে দেখা যাবে।")}
+      />
+      {pins.length > 0 && <div className="map-badge">{pins.length + L(pins.length === 1 ? " place" : " places", " টি জায়গা")}</div>}
+      <button type="button" className="map-close" aria-label={L("Back to chat", "চ্যাটে ফিরুন")} onClick={() => useTripo.getState().setMapOpen(false)}>
+        <Icon name="back" size={18} sw={2.2} /> {L("Chat", "চ্যাট")}
+      </button>
+    </div>
+  );
+}
+
 /* ---------------- list of conversations ---------------- */
-function ChatsList({ sub, wide, open }) {
+function when(ms) {
+  const d = Math.floor((Date.now() - ms) / 86400000);
+  if (d <= 0) return L("Today", "আজ");
+  if (d === 1) return L("Yesterday", "গতকাল");
+  if (d < 7) return d + L(" days ago", " দিন আগে");
+  const dt = new Date(ms);
+  return dt.getDate() + "/" + (dt.getMonth() + 1);
+}
+
+function ChatsList({ sub, always, open }) {
   const router = useRouter();
   const profile = useTripo((s) => s.profile);
+  const user = useTripo((s) => s.user);
+  const authReady = useTripo((s) => s.authReady);
   const trips = useTripo((s) => s.trips);
   const saved = useTripo((s) => s.saved);
-  const history = useTripo((s) => s.history);
+  const chats = useTripo((s) => s.chats);
+  const chatId = useTripo((s) => s.chatId);
   const setDrawer = useTripo((s) => s.setDrawer);
-  const setInvite = useTripo((s) => s.setInvite);
   const showTrips = useTripo((s) => s.showTrips);
-  const last = history.length ? (history[history.length - 1].display || history[history.length - 1].content).replace(/\*\*/g, "") : t("chatsTripoSub");
   const planSub = trips.length || saved.length
     ? trips.length + L(trips.length === 1 ? " trip" : " trips", " টি ট্রিপ") + " · " + saved.length + L(" saved", " সেভ করা")
     : L("Save places, flights & hotels · build a trip", "জায়গা, ফ্লাইট ও হোটেল সেভ করুন · ট্রিপ বানান");
-  const cur = (name) => (wide && sub === name ? " current" : "");
+  const cur = (name) => (always && sub === name ? " current" : "");
+  const ellipsis = { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" };
+  const showAccountRow = accountsEnabled && authReady && !user;
 
   return (
     <div className={"chat-subview" + (sub === "list" ? " active" : "")} id="chatsList">
       <div className="head">
         <button className="head-btn" id="menuBtn" aria-label="Menu" onClick={() => setDrawer(true)}><Icon name="menu" size={21} /></button>
         <div className="head-title" style={{ flexGrow: 1 }}><span>{t("tabChats")}</span></div>
-        <button className="head-btn" id="inviteOpenBtn" aria-label="Invite friends" onClick={() => setInvite(true)}><Icon name="userPlus" size={19} /></button>
+        <button className="new-chat-btn" id="newChatBtn" onClick={() => { useTripo.getState().newChat(); open("ai"); }}>
+          <Icon name="plus" size={15} sw={2.4} /> {L("New chat", "নতুন চ্যাট")}
+        </button>
       </div>
       <div className="mini-list" id="chatsListRows">
-        {!profile && (
-          <div className="chat-list-row signup-row" role="button" tabIndex={0} onClick={() => router.push("/signup")}>
+        {showAccountRow && (
+          <div className="chat-list-row signup-row" id="accountRow" role="button" tabIndex={0} onClick={() => router.push("/login")}>
+            <div className="chat-list-avatar" style={{ background: "#FFFC00", color: "#0A0A0A" }}><Icon name="user" size={18} /></div>
+            <div style={{ flexGrow: 1, minWidth: 0 }}>
+              <div className="chat-list-name">{L("Create a free account", "ফ্রি অ্যাকাউন্ট খুলুন")}</div>
+              <div className="chat-list-sub">{L("Keep your trips and chats on every device", "সব ডিভাইসে আপনার ট্রিপ ও চ্যাট রাখুন")}</div>
+            </div>
+            <span className="new-trip-btn" style={{ padding: "7px 12px" }}>{L("Sign in", "সাইন ইন")}</span>
+          </div>
+        )}
+        {!profile && !showAccountRow && (
+          <div className="chat-list-row signup-row" id="styleRow" role="button" tabIndex={0} onClick={() => router.push("/signup")}>
             <div className="chat-list-avatar" style={{ background: "#0A0A0A", color: "#FFFC00", fontSize: 18 }}>✨</div>
             <div style={{ flexGrow: 1, minWidth: 0 }}>
-              <div className="chat-list-name">{L("Sign up for picks made for you", "আপনার জন্য সাজেশন পেতে সাইন আপ")}</div>
-              <div className="chat-list-sub">{L("Answer 9 quick questions · 1 minute", "৯টি ছোট প্রশ্ন · ১ মিনিট")}</div>
+              <div className="chat-list-name">{L("Tell Tripo your travel style", "Tripo-কে আপনার ভ্রমণের ধরন জানান")}</div>
+              <div className="chat-list-sub">{L("9 quick questions · 1 minute", "৯টি ছোট প্রশ্ন · ১ মিনিট")}</div>
             </div>
-            <span className="new-trip-btn" style={{ padding: "7px 12px" }}>{L("Sign up", "সাইন আপ")}</span>
+            <span className="new-trip-btn" style={{ padding: "7px 12px" }}>{L("Start", "শুরু")}</span>
           </div>
         )}
         <div className="chat-list-row trips-row" role="button" tabIndex={0} onClick={() => { showTrips("trips", null); router.push("/trips"); }}>
@@ -284,11 +346,11 @@ function ChatsList({ sub, wide, open }) {
           </div>
           <Icon name="chevRight" size={16} style={{ color: "var(--muted)" }} />
         </div>
-        <div className={"chat-list-row" + cur("ai")} data-sub="ai" role="button" tabIndex={0} onClick={() => open("ai")}>
+        <div className={"chat-list-row" + (always && sub === "ai" && !chats.some((c) => c.id === chatId) ? " current" : "")} data-sub="ai" role="button" tabIndex={0} onClick={() => open("ai")}>
           <div className="chat-list-avatar" style={{ background: "#0A0A0A" }}><Icon name="sparkSolid" size={18} color="#FFFC00" /></div>
           <div style={{ flexGrow: 1, minWidth: 0 }}>
             <div className="chat-list-name">Tripo</div>
-            <div className="chat-list-sub" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{last}</div>
+            <div className="chat-list-sub" style={ellipsis}>{t("chatsTripoSub")}</div>
           </div>
         </div>
         <div className={"chat-list-row" + cur("expert")} data-sub="expert" role="button" tabIndex={0} onClick={openExpert}>
@@ -298,9 +360,21 @@ function ChatsList({ sub, wide, open }) {
               {L("Travel expert", "ট্রাভেল এক্সপার্ট")}
               <span className="expert-badge">{L("Real person", "আসল মানুষ")}</span>
             </div>
-            <div className="chat-list-sub" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{L("Get 1-to-1 help from a real person", "আসল মানুষের কাছ থেকে সরাসরি সাহায্য নিন")}</div>
+            <div className="chat-list-sub" style={ellipsis}>{L("Get 1-to-1 help from a real person", "আসল মানুষের কাছ থেকে সরাসরি সাহায্য নিন")}</div>
           </div>
         </div>
+
+        {chats.length > 0 && <div className="sec-head" style={{ margin: "10px 2px 0" }}>{L("Recent chats", "সাম্প্রতিক চ্যাট")}</div>}
+        {chats.map((c) => (
+          <div key={c.id} className={"chat-list-row past-chat" + (c.id === chatId ? " current" : "")} role="button" tabIndex={0} onClick={() => useTripo.getState().openChat(c.id)}>
+            <div className="chat-list-avatar small"><Icon name="chat" size={15} /></div>
+            <div style={{ flexGrow: 1, minWidth: 0 }}>
+              <div className="chat-list-name" style={ellipsis}>{c.title || L("Chat", "চ্যাট")}</div>
+              <div className="chat-list-sub">{when(c.updatedAt || Date.now())}</div>
+            </div>
+            <button type="button" className="sv-x" aria-label={L("Delete chat", "চ্যাট মুছুন")} onClick={(e) => { e.stopPropagation(); useTripo.getState().deleteChat(c.id); }}>×</button>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -308,17 +382,25 @@ function ChatsList({ sub, wide, open }) {
 
 export default function ChatScreen() {
   useLang();
-  const wide = useWide();
+  const listAlways = useMedia("(min-width:1500px)"); // very wide: conversations list stays visible
   const rawSub = useTripo((s) => s.chatSub);
+  const blocks = useTripo((s) => s.blocks);
   const setChatSub = useTripo((s) => s.setChatSub);
-  // On wide screens the list is always visible, so "list" means "show the Tripo conversation".
-  const sub = wide && rawSub === "list" ? "ai" : rawSub;
+  const sub = listAlways && rawSub === "list" ? "ai" : rawSub;
   const back = () => setChatSub("list");
+  // With the map beside the chat (wide screens), start on the conversation rather than the list.
+  useEffect(() => {
+    if (window.matchMedia("(min-width:1100px)").matches && useTripo.getState().chatSub === "list") setChatSub("ai");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const points = pointsFromBlocks(blocks);
+  const { pins, lines } = usePins(points);
   return (
     <div className="view active" id="view-chats">
-      <ChatsList sub={sub} wide={wide} open={setChatSub} />
-      <AiThread active={sub === "ai"} onBack={back} />
+      <ChatsList sub={sub} always={listAlways} open={setChatSub} />
+      <AiThread active={sub === "ai"} onBack={back} pinCount={pins.length} />
       <ExpertThread active={sub === "expert"} onBack={back} />
+      <ChatMap points={points} pins={pins} lines={lines} />
     </div>
   );
 }

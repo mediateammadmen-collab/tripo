@@ -8,6 +8,7 @@ import { LogoMark } from "@/components/shell/AppShell";
 import { useTripo } from "@/lib/tripo/store";
 import { useLang, useOpenChat } from "@/lib/tripo/hooks";
 import { L } from "@/lib/tripo/i18n";
+import { accountsEnabled } from "@/lib/supabase/client";
 
 const T0 = 0.3, STEP = 0.75;
 const delay = (n) => ({ animationDelay: (T0 + n * STEP).toFixed(2) + "s" });
@@ -63,12 +64,14 @@ export default function HomeScreen() {
   const ready = useTripo((s) => s.ready);
   const profile = useTripo((s) => s.profile);
   const setLang = useTripo((s) => s.setLang);
-  const has = !!profile;
+  const user = useTripo((s) => s.user);
+  const has = !!profile || !!user;
+  const start = () => router.push(accountsEnabled && !user ? "/login?mode=signup" : "/signup");
 
   // Returning travelers go straight to their chats.
   useEffect(() => {
-    if (ready && profile && !window.location.hash.includes("home")) router.replace("/chat");
-  }, [ready, profile, router]);
+    if (ready && (profile || user) && !window.location.hash.includes("home")) router.replace("/chat");
+  }, [ready, profile, user, router]);
 
   const steps = [
     [L("Before you go", "যাওয়ার আগে"), L("Ideas that fit your style and budget, a day-by-day plan, and what to pack.", "আপনার ধরন ও বাজেট মিলিয়ে আইডিয়া, দিনভিত্তিক প্ল্যান, আর কী গোছাবেন।"), ""],
@@ -103,19 +106,19 @@ export default function HomeScreen() {
                   {L("Tripo is your travel agent from the first idea to the flight home. It plans with you, helps you book, and guides you on the road — just ask, any time.", "প্রথম আইডিয়া থেকে বাড়ি ফেরার ফ্লাইট পর্যন্ত Tripo আপনার ট্রাভেল এজেন্ট। আপনার সাথে প্ল্যান করে, বুকিংয়ে সাহায্য করে, আর ভ্রমণের পথে গাইড করে — যখন খুশি জিজ্ঞাসা করুন।")}
                 </p>
                 <div className="lp-ctas">
-                  <button type="button" className={"lp-cta" + (has ? " ghostish" : "")} id="homeSignup" onClick={() => router.push("/signup")}>
+                  <button type="button" className={"lp-cta" + (has ? " ghostish" : "")} id="homeSignup" onClick={() => (has ? router.push("/signup") : start())}>
                     {has ? L("Redo my travel profile", "ট্রাভেল প্রোফাইল আবার করুন") : signupLabel}
                   </button>
                   {has && (
                     <button type="button" className="lp-cta dark" id="homeContinue" onClick={openChat}>
-                      {L("Continue as ", "চালিয়ে যান: ") + profile.name + " →"}
+                      {profile ? L("Continue as ", "চালিয়ে যান: ") + profile.name + " →" : L("Open Tripo →", "Tripo খুলুন →")}
                     </button>
                   )}
                   {!has && (
                     <button type="button" className="lp-ghost" id="homeExplore" onClick={openChat}>{L("Explore first", "আগে ঘুরে দেখুন")}</button>
                   )}
                 </div>
-                <div className="lp-note" id="homeNote">{L("Free to start · no password · ready in a minute", "শুরু ফ্রি · পাসওয়ার্ড লাগবে না · এক মিনিটেই তৈরি")}</div>
+                <div className="lp-note" id="homeNote">{L("Free to start · try it without an account · ready in a minute", "শুরু ফ্রি · অ্যাকাউন্ট ছাড়াই চেষ্টা করুন · এক মিনিটেই তৈরি")}</div>
               </div>
               <Demo />
             </div>
@@ -135,7 +138,7 @@ export default function HomeScreen() {
                 <b id="homeFinalTitle">{L("Your travel agent is one tap away.", "আপনার ট্রাভেল এজেন্ট এক ট্যাপ দূরে।")}</b>
                 <span id="homeFinalSub">{L("Tell Tripo how you like to travel — it takes about a minute.", "কীভাবে ভ্রমণ করতে ভালোবাসেন Tripo-কে বলুন — মাত্র এক মিনিট।")}</span>
               </div>
-              <button type="button" className="lp-cta" id="homeSignup2" onClick={() => (has ? openChat() : router.push("/signup"))}>
+              <button type="button" className="lp-cta" id="homeSignup2" onClick={() => (has ? openChat() : start())}>
                 {has ? L("Open Tripo →", "Tripo খুলুন →") : signupLabel}
               </button>
             </div>

@@ -2,35 +2,59 @@
 
 AI travel agent website (English + বাংলা), built with Next.js (JavaScript, App Router).
 
+## What it does
+
+- **Chat with a live map** — Tripo's suggestions appear as cards with real photos and as pins on a map;
+  itineraries show each day's stops and route.
+- **Explore** — a guide to any city: things to do, places to eat and stay, with weather.
+- **Trips** — day-by-day editor, calendar, bookings read from uploaded tickets/receipts, download.
+- **Sharing** — a read-only link for anyone, or "plan together" for signed-in friends.
+- **Accounts** — email + password; trips, saved places and chats sync across devices. Guests can use
+  everything except sharing, with data kept in their browser.
+- Flight and hotel search links (Trip.com, Booking.com), voice mode, English + বাংলা.
+
 ## Run on your computer
 
 1. Install packages (first time only): `npm install`
-2. Copy `.env.example` to `.env.local` and paste your Gemini key after `GEMINI_API_KEY=`
-   (free key: https://aistudio.google.com → API Keys).
-3. Start it: `npm run dev` → open http://localhost:3000
+2. Copy `.env.example` to `.env.local` and fill it in (Gemini key, Supabase URL and keys).
+3. **One time:** open `supabase/schema.sql`, copy all of it, and run it in Supabase → SQL Editor.
+   Until this is done, sign-in works but nothing is saved to accounts and sharing is off.
+4. Start it: `npm run dev` → open http://localhost:3000
 
 To test the production version locally: `npm run build` then `npm start`.
+
+### Supabase sign-in settings
+
+In Supabase → Authentication → URL Configuration, set **Site URL** to your live address and add
+`http://localhost:3000/**` and `https://your-live-address/**` to **Redirect URLs** (used by the
+"confirm your email" and "reset password" links). New accounts must confirm their email unless you
+turn "Confirm email" off under Authentication → Sign In / Providers → Email. Supabase's built-in
+email sender only allows a few emails per hour; connect your own SMTP service before launch.
 
 ## Project map
 
 | Path | What it is |
 |---|---|
-| `app/page.js`, `app/signup` | Landing page and the sign-up chat |
-| `app/(app)/…` | The app screens: `/chat`, `/nearby`, `/agent`, `/inspiration`, `/trips`, `/profile` (they share the tab bar in `app/(app)/layout.js`) |
-| `app/api/chat/route.js` | AI endpoint (`POST /api/chat`) — calls Google Gemini with the secret key |
-| `app/privacy`, `app/terms` | Privacy Policy and Terms of Use pages |
-| `app/layout.js`, `app/globals.css` | Fonts, page title, share-preview settings, and all styles |
-| `app/manifest.js`, `app/icons`, `app/icon.svg`, `app/apple-icon.js`, `app/opengraph-image.js` | App icons, "Add to home screen", link previews |
-| `components/chat` | Chats screen, messages, place / flight / hotel / itinerary cards |
-| `components/home`, `components/trips`, `components/profile`, `components/explore` | The other screens |
-| `components/shell` | Tab bar, side menu, dialogs (invite, trip picker, trip form), voice screen, toast |
-| `components/ui` | Icons and drawn place illustrations |
-| `lib/tripo/store.js` | Shared app state: chat, saved items, trips, profile, language |
-| `lib/tripo/storage.js` | Where data is kept (the browser today; account sync plugs in here) |
-| `lib/tripo/ai.js` | The prompt sent to the AI and reading its reply |
-| `lib/tripo/i18n.js`, `content.js` | All interface text (English + বাংলা) and starter content |
-| `lib/tripo/travel.js`, `items.js`, `scene.js`, `voice.js`, `plandoc.js` | Booking links, saved-item helpers, illustrations, voice mode, plan download |
-| `lib/tripo/config.js` | Site name/description and settings read from environment variables |
+| `app/page.js`, `app/signup`, `app/login` | Landing page, travel-style questions, sign in / create account |
+| `app/(app)/…` | The app screens: `/chat`, `/explore`, `/agent`, `/inspiration`, `/trips`, `/profile` |
+| `app/t/[shareId]` | Public page for a shared trip |
+| `app/api/chat` | AI chat (Google Gemini) |
+| `app/api/places` | Finds a place's location, photo and description (Wikipedia + OpenStreetMap) |
+| `app/api/explore` | City guide: AI-picked sights, food and stays, placed on the map, plus weather |
+| `app/api/receipt` | Reads an uploaded ticket or receipt with Gemini |
+| `app/privacy`, `app/terms` | Privacy Policy and Terms of Use |
+| `components/chat`, `components/map` | Chats screen, cards, and the MapLibre map |
+| `components/trips` | Trips list, day-by-day editor, calendar, receipts, shared-trip page |
+| `components/explore`, `components/home`, `components/profile`, `components/account` | The other screens |
+| `components/shell` | Tab bar, side menu, dialogs (trip picker, trip form, place details, share), voice, toast |
+| `lib/tripo/store.js` | Shared app state and all actions (chat, trips, accounts, sync) |
+| `lib/tripo/storage.js`, `cloud.js` | Browser storage and account sync (Supabase) |
+| `lib/tripo/trips.js`, `places.js`, `items.js` | Trip model, map look-up keys, saved-item helpers |
+| `lib/tripo/ai.js`, `i18n.js`, `content.js` | AI prompt, interface text (English + বাংলা), starter content |
+| `lib/server/places.js`, `ratelimit.js` | Server-side place look-up with caching; request limiter |
+| `lib/supabase/client.js`, `admin.js` | Browser and server connections to Supabase |
+| `supabase/schema.sql` | Database tables and security rules — run once in Supabase |
+| `scripts/copy-map-worker.mjs` | Copies the map library's worker file into `public/vendor` on install |
 | `legacy/tripmate.html` | The original single-file version (reference only, not served) |
 
 ## Settings (`.env.local`, and your host's environment variables when deployed)
@@ -57,7 +81,13 @@ After changing `.env.local`, restart `npm run dev`.
    (set `NEXT_PUBLIC_SITE_URL` to your Netlify address).
 4. Deploy.
 
+## Free services Tripo relies on
+
+Gemini free tier (AI), Supabase free tier (accounts, database), OpenFreeMap (map tiles),
+Wikipedia and Photon/OpenStreetMap (place look-up), Open-Meteo (weather). All have fair-use limits;
+place and city-guide results are cached in the database to stay well within them.
+
 ## Not built yet
 
-- Accounts and a database (expert live chat, friend chat, syncing trips across devices).
-  Until then, data lives in each visitor's browser and "talk to a real person" uses WhatsApp.
+- Community guides and creator profiles, background "agents" (price watch), in-app chat with a human
+  expert (currently WhatsApp), Google sign-in.

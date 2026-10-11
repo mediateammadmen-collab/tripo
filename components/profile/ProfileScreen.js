@@ -10,6 +10,7 @@ import { useLang, useAskTripo } from "@/lib/tripo/hooks";
 import { L, t } from "@/lib/tripo/i18n";
 import { optLabel } from "@/lib/tripo/items";
 import { initials, slug } from "@/lib/tripo/util";
+import { accountsEnabled } from "@/lib/supabase/client";
 
 export default function ProfileScreen() {
   const lang = useLang();
@@ -23,6 +24,15 @@ export default function ProfileScreen() {
   const setInvite = useTripo((s) => s.setInvite);
   const showTrips = useTripo((s) => s.showTrips);
   const openTripForm = useTripo((s) => s.openTripForm);
+  const user = useTripo((s) => s.user);
+  const sync = useTripo((s) => s.sync);
+  const authReady = useTripo((s) => s.authReady);
+  const syncText = {
+    syncing: L("Syncing your account…", "অ্যাকাউন্ট সিঙ্ক হচ্ছে…"),
+    synced: L("Your trips, saved places and chats are synced to your account.", "আপনার ট্রিপ, সেভ করা জায়গা ও চ্যাট অ্যাকাউন্টে সিঙ্ক আছে।"),
+    error: L("Some changes haven't reached your account yet. They'll retry automatically.", "কিছু পরিবর্তন এখনো অ্যাকাউন্টে পৌঁছায়নি। নিজে থেকেই আবার চেষ্টা হবে।"),
+    setup: L("You're signed in, but account storage isn't switched on for this site yet. Your data stays in this browser for now.", "আপনি সাইন ইন করেছেন, কিন্তু এই সাইটে অ্যাকাউন্ট স্টোরেজ এখনো চালু হয়নি। আপাতত ডেটা এই ব্রাউজারে থাকছে।"),
+  }[sync];
 
   const places = saved.filter((x) => x.kind === "place" && x.data && x.data.name);
   const countries = new Set(places.filter((x) => x.data.country).map((x) => String(x.data.country).trim().toLowerCase())).size;
@@ -62,7 +72,7 @@ export default function ProfileScreen() {
 
         <div className="ig-btn-row">
           <button className={"ig-btn" + (p ? "" : " primary")} id="editProfileBtn" onClick={() => router.push("/signup")}>
-            {p ? L("Edit travel style", "ভ্রমণ পছন্দ এডিট") : L("Sign up", "সাইন আপ")}
+            {p ? L("Edit travel style", "ভ্রমণ পছন্দ এডিট") : L("Set my travel style", "ভ্রমণের ধরন ঠিক করুন")}
           </button>
           <button className="ig-btn primary" id="profileInviteBtn" onClick={() => setInvite(true)}>{t("inviteShort")}</button>
         </div>
@@ -103,6 +113,36 @@ export default function ProfileScreen() {
             {trips.length ? L("+ New trip", "+ নতুন ট্রিপ") : L("+ Plan your first trip", "+ প্রথম ট্রিপ প্ল্যান করুন")}
           </button>
         </div>
+
+        {accountsEnabled && authReady && (
+          <div className="account-card" id="accountCard">
+            {user ? (
+              <>
+                <div className="account-row">
+                  <Icon name="cloud" size={18} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <b id="accountEmail">{user.email}</b>
+                    <span className={"account-sync " + sync}>{syncText}</span>
+                  </div>
+                </div>
+                <button type="button" className="ig-btn" id="signOutBtn" onClick={async () => { await useTripo.getState().signOut(); router.push("/"); }}>
+                  {L("Sign out", "সাইন আউট")}
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="account-row">
+                  <Icon name="cloud" size={18} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <b>{L("You're using Tripo as a guest", "আপনি গেস্ট হিসেবে Tripo ব্যবহার করছেন")}</b>
+                    <span className="account-sync">{L("Your trips are saved only in this browser. Create a free account to keep them on every device and share them.", "আপনার ট্রিপ শুধু এই ব্রাউজারে সেভ আছে। সব ডিভাইসে রাখতে ও শেয়ার করতে ফ্রি অ্যাকাউন্ট খুলুন।")}</span>
+                  </div>
+                </div>
+                <button type="button" className="ig-btn primary" id="signInBtn" onClick={() => router.push("/login")}>{L("Sign in or create an account", "সাইন ইন বা অ্যাকাউন্ট খুলুন")}</button>
+              </>
+            )}
+          </div>
+        )}
 
         <div className="settings-section" id="settingsSection">
           <div className="settings-heading">{t("settingsHeading")}</div>

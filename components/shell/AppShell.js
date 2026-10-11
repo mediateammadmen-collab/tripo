@@ -7,10 +7,10 @@ import Icon from "@/components/ui/Icon";
 import { useTripo } from "@/lib/tripo/store";
 import { useLang } from "@/lib/tripo/hooks";
 import { t } from "@/lib/tripo/i18n";
-import { Toast, Drawer, InviteModal, TripPicker, TripForm, VoiceOverlay } from "./Overlays";
+import { Toast, Drawer, InviteModal, TripPicker, TripForm, PlaceSheet, ShareDialog, VoiceOverlay } from "./Overlays";
 
 const NAV = [
-  { href: "/nearby", icon: "pin", key: "tabNearby" },
+  { href: "/explore", icon: "pin", key: "tabExplore" },
   { href: "/chat", icon: "chat", key: "tabChats" },
   { href: "/agent", icon: "spark", key: "tabAgent" },
   { href: "/inspiration", icon: "bulb", key: "tabInspiration" },
@@ -54,7 +54,8 @@ function FooterNav() {
             aria-current={active ? "page" : undefined}
             onClick={() => {
               const s = useTripo.getState();
-              if (n.href === "/chat") s.setChatSub("list");
+              if (n.href === "/chat") s.setChatSub(window.matchMedia("(min-width:1100px)").matches ? "ai" : "list");
+              s.setMapOpen(false);
               if (n.href === "/trips") s.showTrips(s.tripsTab, null);
             }}
           >
@@ -87,6 +88,8 @@ export function GlobalOverlays() {
       <InviteModal />
       <TripPicker />
       <TripForm />
+      <PlaceSheet />
+      <ShareDialog />
       <VoiceOverlay />
       <Toast />
     </>

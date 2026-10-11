@@ -8,6 +8,27 @@ import { L } from "@/lib/tripo/i18n";
 import { addDays, validDate, ymd, nightsBetween } from "@/lib/tripo/util";
 import { AIRPORTS, cityToIata, tripUrl, tripRouteUrl, bookingUrl, runtime } from "@/lib/tripo/travel";
 import { itemKey } from "@/lib/tripo/items";
+import { placeQuery, placeKey } from "@/lib/tripo/places";
+
+/* A real photo when we found one (Wikipedia), otherwise Tripo's drawn illustration. */
+export function PlacePhoto({ info, scene, name }) {
+  const [broken, setBroken] = useState(false);
+  if (info && info.photo && !broken) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img className="place-photo" src={info.photo} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setBroken(true)} />;
+  }
+  return <Scene className="scene-fill" scene={scene} name={name} />;
+}
+
+// Opens the details panel for a place and points the map at it.
+export function showPlace(kind, data, dest) {
+  const query = placeQuery(kind, data, dest);
+  const key = placeKey(query);
+  const s = useTripo.getState();
+  s.resolvePlaces([query]);
+  s.setMapFocus(key);
+  s.openPlace({ key, kind, name: data.name, data, query });
+}
 
 const range = (n) => Array.from({ length: n }, (_, i) => i + 1);
 
@@ -46,10 +67,13 @@ function PlaceCard({ p, solo }) {
   const send = useTripo((s) => s.sendChatMessage);
   const name = p.name || "";
   const data = { name, country: p.country || "", scene: p.scene || "", tagline: p.tagline || "", best_time: p.best_time || "" };
+  const key = placeKey(placeQuery("place", p));
+  const info = useTripo((s) => s.placeInfo[key]);
+  const open = () => showPlace("place", p);
   return (
-    <div className={"place-card" + (solo ? " solo" : "")}>
-      <div className="place-media">
-        <Scene className="scene-fill" scene={p.scene} name={name + " " + (p.country || "")} />
+    <div className={"place-card" + (solo ? " solo" : "")} data-place={key}>
+      <div className="place-media" role="button" tabIndex={0} onClick={open} onKeyDown={(e) => { if (e.key === "Enter") open(); }}>
+        <PlacePhoto info={info} scene={p.scene} name={name + " " + (p.country || "")} />
         <SaveButton kind="place" data={data} onImage />
         <div className="ov">
           <div className="place-name">{name}</div>
@@ -112,9 +136,16 @@ export function Itinerary({ items, dest }) {
         {list.map((d, i) => (
           <div className="itin-day" key={i}>
             <div className="itin-n">{L("D", "দিন ") + (d.day || i + 1)}</div>
-            <div>
+            <div style={{ minWidth: 0 }}>
               <div className="itin-t">{d.title || ""}</div>
               <div className="itin-p">{d.plan || ""}</div>
+              {Array.isArray(d.places) && d.places.length > 0 && (
+                <div className="itin-stops">
+                  {d.places.filter((x) => typeof x === "string" && x.trim()).slice(0, 5).map((name) => (
+                    <button key={name} type="button" className="itin-stop" onClick={() => showPlace("stop", { name: name.trim(), context: dest || "" }, dest)}>📍 {name}</button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -301,7 +332,7 @@ export function HotelCard({ h }) {
                 const where = baseCity || city;
                 return (
                   <div className="hotel-card" key={o.name + i}>
-                    <div className="hotel-media">
+                    <div className="hotel-media" role="button" tabIndex={0} onClick={() => showPlace("hotel", { ...o, city: where }, where)}>
                       <Scene className="scene-fill" scene="hotel" name={o.name} />
                       <SaveButton kind="hotel" data={data} onImage />
                     </div>

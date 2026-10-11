@@ -8,7 +8,7 @@ export const metadata = {
 
 export default function TermsPage() {
   return (
-    <LegalPage title="Terms of Use" updated="5 October 2026">
+    <LegalPage title="Terms of Use" updated="11 October 2026">
       <p>
         These terms apply when you use Tripo, a travel planning website run by {site.operator}. By using Tripo you
         agree to them. If you don&apos;t agree, please don&apos;t use the service.
@@ -23,8 +23,9 @@ export default function TermsPage() {
 
       <h2>AI suggestions can be wrong</h2>
       <p>
-        Tripo&apos;s answers are written by AI. They can be out of date, incomplete or simply wrong, including
-        flight routes and times, hotel names, opening hours, visa rules and safety advice. Always check important
+        Tripo&apos;s answers, city guides and the details it reads from uploaded bookings are produced by AI. They
+        can be out of date, incomplete or simply wrong, including flight routes and times, hotel names, opening
+        hours, visa rules, safety advice and where a place is shown on the map. Always check important
         details with the airline, hotel, booking site or official government sources before you travel or pay for
         anything.
       </p>
@@ -52,9 +53,10 @@ export default function TermsPage() {
 
       <h2>Your data</h2>
       <p>
-        Your profile and saved trips are stored in your own browser. See our <a href="/privacy">Privacy Policy</a>{" "}
-        for details. You are responsible for keeping a copy of anything important, for example using the download
-        button in My plan.
+        As a guest, your profile and trips are stored in your own browser; with an account they are stored in your
+        account. See our <a href="/privacy">Privacy Policy</a> for details. Keep your password private, and keep a
+        copy of anything important, for example using the download button in My plan. When you share a trip or plan
+        it with others, you are responsible for what you put in it and who you give the link to.
       </p>
 
       <h2>No guarantees</h2>
