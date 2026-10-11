@@ -3,9 +3,11 @@
 
 export const dynamic = "force-dynamic";
 
-const MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
-// Used when the main model is busy (503) or out of free quota (429).
-const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || "gemini-flash-lite-latest";
+// Flash-Lite answers in a few seconds and is rarely overloaded, so it is the default.
+const MODEL = process.env.GEMINI_MODEL || "gemini-flash-lite-latest";
+// Used when the main model is busy (503), out of free quota (429) or too slow.
+const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || "gemini-flash-latest";
+const ATTEMPT_TIMEOUT_MS = 20_000; // give up on a stuck model instead of freezing the chat
 const MAX_TURNS = 30;
 const MAX_CHARS = 8000; // per message
 const MAX_BODY_BYTES = 200_000;
@@ -67,7 +69,7 @@ export async function POST(req) {
   });
   const models = FALLBACK_MODEL && FALLBACK_MODEL !== MODEL ? [MODEL, FALLBACK_MODEL] : [MODEL];
 
-  let res;
+  let res = null;
   for (const model of models) {
     try {
       res = await fetch(
@@ -77,14 +79,18 @@ export async function POST(req) {
           headers: { "Content-Type": "application/json", "x-goog-api-key": key },
           body: payload,
           cache: "no-store",
+          signal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),
         }
       );
-    } catch {
-      return json(502, { error: "upstream_unreachable" });
+    } catch (e) {
+      console.warn(`Gemini ${model} ${e && e.name === "TimeoutError" ? "timed out" : "unreachable"}, trying next model`);
+      res = null;
+      continue;
     }
     if (res.status !== 503 && res.status !== 429) break;
     console.warn(`Gemini ${model} returned ${res.status}, trying next model`);
   }
+  if (!res) return json(502, { error: "upstream_unreachable" });
 
   if (res.status === 429) return json(429, { error: "rate_limited" });
   if (!res.ok) {

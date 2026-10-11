@@ -1,5 +1,6 @@
 import { Poppins, Inter, Hind_Siliguri } from "next/font/google";
 import { site } from "@/lib/tripo/config";
+import { TripoInit } from "@/components/shell/AppShell";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -48,7 +49,10 @@ export default function RootLayout({ children }) {
       className={`${poppins.variable} ${inter.variable} ${hind.variable}`}
       suppressHydrationWarning
     >
-      <body>{children}</body>
+      <body>
+        <TripoInit />
+        {children}
+      </body>
     </html>
   );
 }

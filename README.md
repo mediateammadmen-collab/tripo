@@ -15,23 +15,31 @@ To test the production version locally: `npm run build` then `npm start`.
 
 | Path | What it is |
 |---|---|
-| `app/page.js` | Home page — mounts the Tripo app |
+| `app/page.js`, `app/signup` | Landing page and the sign-up chat |
+| `app/(app)/…` | The app screens: `/chat`, `/nearby`, `/agent`, `/inspiration`, `/trips`, `/profile` (they share the tab bar in `app/(app)/layout.js`) |
 | `app/api/chat/route.js` | AI endpoint (`POST /api/chat`) — calls Google Gemini with the secret key |
 | `app/privacy`, `app/terms` | Privacy Policy and Terms of Use pages |
-| `app/layout.js` | Fonts, page title, description, share-preview settings |
-| `app/globals.css` | All styles |
+| `app/layout.js`, `app/globals.css` | Fonts, page title, share-preview settings, and all styles |
 | `app/manifest.js`, `app/icons`, `app/icon.svg`, `app/apple-icon.js`, `app/opengraph-image.js` | App icons, "Add to home screen", link previews |
-| `components/TripoApp.js` | Puts the app on the page and starts it |
-| `lib/tripo/app.js` | The app logic: chat, AI cards, saved trips, profile, voice |
-| `lib/tripo/markup.js` | The app's screens and menus |
+| `components/chat` | Chats screen, messages, place / flight / hotel / itinerary cards |
+| `components/home`, `components/trips`, `components/profile`, `components/explore` | The other screens |
+| `components/shell` | Tab bar, side menu, dialogs (invite, trip picker, trip form), voice screen, toast |
+| `components/ui` | Icons and drawn place illustrations |
+| `lib/tripo/store.js` | Shared app state: chat, saved items, trips, profile, language |
+| `lib/tripo/storage.js` | Where data is kept (the browser today; account sync plugs in here) |
+| `lib/tripo/ai.js` | The prompt sent to the AI and reading its reply |
+| `lib/tripo/i18n.js`, `content.js` | All interface text (English + বাংলা) and starter content |
+| `lib/tripo/travel.js`, `items.js`, `scene.js`, `voice.js`, `plandoc.js` | Booking links, saved-item helpers, illustrations, voice mode, plan download |
 | `lib/tripo/config.js` | Site name/description and settings read from environment variables |
 | `legacy/tripmate.html` | The original single-file version (reference only, not served) |
 
 ## Settings (`.env.local`, and your host's environment variables when deployed)
 
 - `GEMINI_API_KEY` — secret, server only.
-- `GEMINI_MODEL` / `GEMINI_FALLBACK_MODEL` — which Gemini models to use. The fallback is used
-  automatically when the main model is busy.
+- `GEMINI_MODEL` / `GEMINI_FALLBACK_MODEL` — which Gemini models to use (default: Flash-Lite, with Flash
+  as backup). The backup is used automatically when the main model is busy or takes over 20 seconds.
+- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY` — Supabase project
+  (accounts and database; the secret key is server only).
 - `NEXT_PUBLIC_SITE_URL` — your live address (used for link previews).
 - `NEXT_PUBLIC_WHATSAPP_NUMBER` — shows WhatsApp buttons for "talk to a real person".
 - `NEXT_PUBLIC_CONTACT_EMAIL`, `NEXT_PUBLIC_OPERATOR_NAME` — shown on the Privacy and Terms pages.
