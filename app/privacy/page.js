@@ -8,7 +8,7 @@ export const metadata = {
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy Policy" updated="11 October 2026">
+    <LegalPage title="Privacy Policy" updated="15 October 2026">
       <p>
         Tripo is run by {site.operator}. This page explains what information Tripo uses, where it goes, and the
         choices you have.
@@ -45,21 +45,23 @@ export default function PrivacyPage() {
       <h2>Chat messages and AI</h2>
       <p>
         When you chat with Tripo, your message, recent conversation and your travel profile are sent through our
-        server to Google&apos;s Gemini AI service so it can write an answer. Our AI server does not keep a copy;
-        the conversation is saved in your browser, and in your account if you are signed in. Google processes this
-        data under the{" "}
+        server to an AI service so it can write an answer: OpenAI, or Google&apos;s Gemini as a backup when OpenAI
+        is busy. Our server does not keep a copy; the conversation is saved in your browser, and in your account if
+        you are signed in. OpenAI processes this data under its{" "}
+        <a href="https://openai.com/policies/business-terms/" target="_blank" rel="noopener noreferrer">business terms</a>{" "}
+        and does not use it to train its models by default. Google processes backup requests under the{" "}
         <a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener noreferrer">
           Gemini API Additional Terms of Service
         </a>
-        . While Tripo uses Google&apos;s free tier, Google may use these messages to improve its products, and
-        people at Google may review them. Please don&apos;t share passwords, ID or passport numbers, payment details
-        or health information in the chat.
+        ; on Google&apos;s free tier those messages may be used to improve Google&apos;s products and reviewed by
+        people. Please don&apos;t share passwords, ID or passport numbers, payment details or health information in
+        the chat.
       </p>
 
       <h2>Tickets and receipts you upload</h2>
       <p>
-        When you upload a photo or PDF of a booking, it is sent through our server to Google&apos;s Gemini AI
-        service, which reads out details such as the booking reference, dates and price. The file itself is not
+        When you upload a photo or PDF of a booking, it is sent through our server to the AI service (OpenAI, or
+        Google Gemini as a backup), which reads out details such as the booking reference, dates and price. The file itself is not
         stored by Tripo; only the details that were read are saved with your trip. Please don&apos;t upload
         documents that show passport numbers or full card numbers.
       </p>
@@ -75,9 +77,13 @@ export default function PrivacyPage() {
 
       <h2>Voice</h2>
       <p>
-        Voice mode uses your browser&apos;s built-in speech features. Some browsers, such as Google Chrome, send
-        your voice to the browser maker&apos;s servers to turn it into text. Tripo itself does not record or store
-        audio. You can always type instead.
+        Live voice only starts when you tap the voice button, and your browser asks for permission to use the
+        microphone first. While a voice conversation is open, your voice is streamed directly to OpenAI&apos;s
+        realtime service so Tripo can hear and answer you, and what you and Tripo say is written into your chat.
+        Tripo does not record or store the audio. A voice conversation ends when you tap End, after two quiet
+        minutes, or after 15 minutes. If live voice isn&apos;t available, Tripo uses your browser&apos;s own speech
+        features instead; some browsers, such as Google Chrome, send that audio to the browser maker to turn it
+        into text. You can always type instead.
       </p>
 
       <h2>Booking links</h2>

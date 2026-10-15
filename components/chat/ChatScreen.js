@@ -11,7 +11,7 @@ import { pointsFromBlocks } from "@/lib/tripo/places";
 import { accountsEnabled } from "@/lib/supabase/client";
 import MapView from "@/components/map/MapView";
 import { L, t } from "@/lib/tripo/i18n";
-import { TABS, CONTENT } from "@/lib/tripo/content";
+import { CONTENT, WELCOME_IDEAS } from "@/lib/tripo/content";
 import { runtime, whatsappUrl } from "@/lib/tripo/travel";
 import { openVoice } from "@/lib/tripo/voice";
 import { Places, Itinerary, FlightCard, HotelCard, showPlace } from "./Cards";
@@ -47,15 +47,37 @@ function Typing() {
   );
 }
 
+const WELCOME_CHIPS = ["flights", "stay", "planTrip", "planForMe", "packages"];
+
+// The start of every conversation: talk live, tap an idea, or pick a shortcut.
 function QuickChips() {
   const categoryTap = useTripo((s) => s.categoryTap);
+  const send = useTripo((s) => s.sendChatMessage);
+  const lang = useTripo((s) => s.lang);
   return (
-    <div className="quick-wrap">
-      {TABS.map((key) => (
-        <button key={key} type="button" className="quick-chip" onClick={() => categoryTap(key)}>{t("tabs." + key)}</button>
-      ))}
-      <button type="button" className="quick-chip voice" onClick={openVoice}>{L("🎙 Talk to Tripo", "🎙 Tripo-র সাথে কথা বলুন")}</button>
-      <button type="button" className="quick-chip agent" onClick={openExpert}>{L("👤 Talk to a real person", "👤 আসল মানুষের সাথে কথা বলুন")}</button>
+    <div className="welcome">
+      <button type="button" className="wl-voice" id="welcomeVoice" onClick={openVoice}>
+        <span className="wl-orb"><Icon name="micRound" size={22} /></span>
+        <span className="wl-voice-text">
+          <b>{L("Talk to Tripo — live", "Tripo-র সাথে লাইভ কথা বলুন")}</b>
+          <small>{L("Just say where you want to go. Places appear on your map while Tripo talks.", "শুধু বলুন কোথায় যেতে চান। Tripo কথা বলার সময়ই জায়গাগুলো ম্যাপে চলে আসবে।")}</small>
+        </span>
+        <span className="wl-go"><Icon name="chevRight" size={18} sw={2.4} /></span>
+      </button>
+      <div className="wl-ideas">
+        {WELCOME_IDEAS.map((x) => (
+          <button key={x.name} type="button" className="wl-idea" onClick={() => send(x.ask[lang])}>
+            <Scene className="wl-art" scene={x.scene} name={x.name} />
+            <span>{x.title[lang]}</span>
+          </button>
+        ))}
+      </div>
+      <div className="quick-wrap">
+        {WELCOME_CHIPS.map((key) => (
+          <button key={key} type="button" className="quick-chip" onClick={() => categoryTap(key)}>{t("tabs." + key)}</button>
+        ))}
+        <button type="button" className="quick-chip agent" onClick={openExpert}>{L("👤 Talk to a real person", "👤 আসল মানুষের সাথে কথা বলুন")}</button>
+      </div>
     </div>
   );
 }

@@ -79,6 +79,12 @@ export default function HomeScreen() {
     [L("While you travel", "ভ্রমণের সময়"), L("What to do now, where to eat, how to get around, and what to do when plans change.", "এখন কী করবেন, কোথায় খাবেন, কীভাবে যাবেন, আর প্ল্যান বদলালে কী করবেন।"), ""],
     [L("A real person, when you need one", "দরকার হলে আসল মানুষ"), L("Our travel experts help 1-to-1 with custom trips, group bookings and problems.", "কাস্টম ট্রিপ, গ্রুপ বুকিং বা সমস্যায় আমাদের ট্রাভেল এক্সপার্টরা সরাসরি সাহায্য করেন।"), "agent"],
   ];
+  const features = [
+    { icon: "micRound", title: L("Talk, don't type", "লিখবেন না, বলুন"), text: L("A live voice conversation in English or বাংলা. Interrupt any time — Tripo keeps up.", "ইংরেজি বা বাংলায় লাইভ কথোপকথন। যখন খুশি থামান — Tripo তাল মিলিয়ে চলবে।") },
+    { icon: "map", title: L("See it on the map", "ম্যাপে দেখুন"), text: L("Every place Tripo suggests lands on a live map with real photos and day-by-day routes.", "Tripo-র সব সাজেশন আসল ছবি আর দিনভিত্তিক রুটসহ লাইভ ম্যাপে।") },
+    { icon: "pin", title: L("Explore any city", "যেকোনো শহর ঘুরে দেখুন"), text: L("Things to do, places to eat and stay — for Dhaka, Sylhet, Bangkok or anywhere.", "ঘোরার জায়গা, খাবার ও থাকার জায়গা — ঢাকা, সিলেট, ব্যাংকক বা যেকোনো জায়গার।") },
+    { icon: "userPlus", title: L("Plan together", "একসাথে প্ল্যান"), text: L("Share a trip with friends and family and build the plan together, on any device.", "বন্ধু ও পরিবারের সাথে ট্রিপ শেয়ার করে যেকোনো ডিভাইস থেকে একসাথে প্ল্যান করুন।") },
+  ];
   const trust = [L("🎙 Talk or type", "🎙 বলুন বা লিখুন"), "🇧🇩 বাংলা + English", L("🧳 Your plan, saved & downloadable", "🧳 আপনার প্ল্যান, সেভ ও ডাউনলোড"), L("💸 Free to start", "💸 শুরু ফ্রি")];
   const signupLabel = L("Sign up — it's free", "সাইন আপ — ফ্রি");
 
@@ -128,6 +134,16 @@ export default function HomeScreen() {
             <div className="lp-journey" id="homeJourney">
               {steps.map((st) => (
                 <div className={"lp-step " + st[2]} key={st[0]}><b>{st[0]}</b><span>{st[1]}</span></div>
+              ))}
+            </div>
+            <h2 className="lp-h2b">{L("Made for how you travel", "আপনার ভ্রমণের মতো করে বানানো")}</h2>
+            <div className="lp-features" id="homeFeatures">
+              {features.map((f) => (
+                <div className="lp-feat" key={f.icon}>
+                  <span className="lp-feat-ic"><Icon name={f.icon} size={22} /></span>
+                  <b>{f.title}</b>
+                  <span>{f.text}</span>
+                </div>
               ))}
             </div>
             <div className="lp-trust" id="homeTrust">

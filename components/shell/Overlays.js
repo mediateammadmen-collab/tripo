@@ -452,42 +452,46 @@ export function VoiceOverlay() {
   const v = useVoice();
   const [typed, setTyped] = useState("");
   const inputRef = useRef(null);
+  const live = v.mode === "live";
+  const caption = v.reply.length > 260 ? "…" + v.reply.slice(-260) : v.reply;
   return (
-    <div className={"voice-ov" + (v.open ? " open" : "")} id="voiceOverlay" data-state={v.state} role="dialog" aria-label="Voice conversation with Tripo">
-      <div className="v-top">
-        <b>Tripo · Voice</b>
+    <div className={"vdock" + (v.open ? " open" : "")} id="voiceOverlay" data-state={v.state} data-mode={v.mode} role="dialog" aria-label={L("Voice conversation with Tripo", "Tripo-র সাথে ভয়েস কথোপকথন")}>
+      <div className="vd-head">
+        <span className="vd-live"><i />{live ? L("Live voice", "লাইভ ভয়েস") : L("Voice", "ভয়েস")}</span>
         <span className="v-pill" id="vLang">{lang === "bn" ? "বাংলা" : "English"}</span>
+        <button type="button" className="vd-x" aria-label={L("End voice chat", "ভয়েস চ্যাট শেষ করুন")} onClick={closeVoice}><Icon name="x" size={16} sw={2.4} /></button>
       </div>
-      <div className="v-center">
-        <div className="v-status" id="vStatus" aria-live="polite">{v.status}</div>
-        <button type="button" className="v-orb" id="vOrb" aria-label="Talk" onClick={() => orbTap(() => inputRef.current && inputRef.current.focus())}>
-          <Icon name="micRound" size={54} className="v-mic" />
-          <span className="v-bars"><i /><i /><i /><i /><i /></span>
+      <div className="vd-main">
+        <button type="button" className="vd-orb" id="vOrb" aria-label={v.state === "speaking" ? L("Interrupt", "থামান") : L("Talk", "কথা বলুন")} onClick={() => orbTap(() => inputRef.current && inputRef.current.focus())}>
+          <span className="vd-ring r1" /><span className="vd-ring r2" />
+          <span className="vd-core">
+            {v.state === "speaking" ? <span className="vd-bars"><i /><i /><i /><i /></span> : v.state === "connecting" || v.state === "thinking" ? <span className="vd-dots"><i /><i /><i /></span> : <Icon name="micRound" size={28} />}
+          </span>
         </button>
-        <div className={"v-heard" + (v.interim ? " interim" : "")} id="vHeard">{v.heard ? "“" + v.heard + "”" : ""}</div>
-        {v.reply ? <RichText className="v-reply" text={v.reply} /> : <div className="v-reply" id="vReply" />}
-        <button type="button" className="v-link" id="vShowChat" onClick={closeVoice}>
-          {L("See places, flights & hotels in the chat", "চ্যাটে জায়গা, ফ্লাইট ও হোটেল দেখুন")}
-        </button>
-      </div>
-      <form className="v-type" id="vTypeForm" onSubmit={(e) => { e.preventDefault(); const x = typed.trim(); if (!x) return; setTyped(""); askTyped(x); }}>
-        <div id="vTypeRow" style={{ display: v.typeBox ? "flex" : "none", flex: 1, gap: 8 }}>
-          <input id="vTypeInput" ref={inputRef} type="text" autoComplete="off" placeholder={L("Type your question…", "আপনার প্রশ্ন লিখুন…")} value={typed} onChange={(e) => setTyped(e.target.value)} />
-          <button type="submit" aria-label="Send">→</button>
+        <div className="vd-text">
+          <div className="vd-status" id="vStatus" aria-live="polite">{v.status}</div>
+          {v.heard ? <div className={"vd-said" + (v.interim ? " interim" : "")} id="vHeard">“{v.heard}”</div> : null}
+          {caption ? <div className="vd-reply" id="vReply">{caption.replace(/\*\*/g, "")}</div> : null}
+          {!v.heard && !caption && v.state === "listening" ? <div className="vd-hint">{L("Try: “Suggest a beach weekend near Dhaka”", "বলুন: “ঢাকার কাছে সৈকতে উইকেন্ড সাজেস্ট করো”")}</div> : null}
         </div>
+      </div>
+      {v.shown > 0 && <div className="vd-shown">✨ {v.shown === 1 ? L("1 card added to your chat and map", "চ্যাট ও ম্যাপে ১টি কার্ড যোগ হয়েছে") : L(v.shown + " cards added to your chat and map", "চ্যাট ও ম্যাপে " + v.shown + "টি কার্ড যোগ হয়েছে")}</div>}
+      <form className="vd-type" id="vTypeForm" style={{ display: v.typeBox ? "flex" : "none" }} onSubmit={(e) => { e.preventDefault(); const x = typed.trim(); if (!x) return; setTyped(""); askTyped(x); }}>
+        <input id="vTypeInput" ref={inputRef} type="text" autoComplete="off" placeholder={L("Type to Tripo…", "Tripo-কে লিখুন…")} value={typed} onChange={(e) => setTyped(e.target.value)} />
+        <button type="submit" aria-label={L("Send", "পাঠান")}><Icon name="send" size={16} sw={2.4} /></button>
       </form>
-      <div className="v-controls">
-        <button type="button" className={"v-ctl" + (v.muted ? " on" : "")} id="vMuteBtn" onClick={toggleMute}>
-          <span className="c"><Icon name="speaker" size={22} /></span>
-          <span id="vMuteLbl">{v.muted ? L("Voice off", "ভয়েস বন্ধ") : L("Voice on", "ভয়েস চালু")}</span>
+      <div className="vd-controls">
+        <button type="button" className={"vd-btn" + (v.muted ? " on" : "")} id="vMuteBtn" onClick={toggleMute} aria-pressed={v.muted}>
+          <Icon name={live ? "mic" : "speaker"} size={18} />
+          <span id="vMuteLbl">{live ? (v.muted ? L("Mic off", "মাইক বন্ধ") : L("Mic on", "মাইক চালু")) : v.muted ? L("Voice off", "ভয়েস বন্ধ") : L("Voice on", "ভয়েস চালু")}</span>
         </button>
-        <button type="button" className="v-ctl end" id="vEndBtn" onClick={closeVoice}>
-          <span className="c"><Icon name="x" size={26} sw={2.4} color="#fff" /></span>
-          <span>{L("End", "শেষ")}</span>
-        </button>
-        <button type="button" className="v-ctl" id="vTypeBtn" onClick={() => { if (toggleTypeBox()) setTimeout(() => inputRef.current && inputRef.current.focus(), 30); }}>
-          <span className="c"><Icon name="keyboard" size={22} /></span>
+        <button type="button" className={"vd-btn" + (v.typeBox ? " on" : "")} id="vTypeBtn" onClick={() => { if (toggleTypeBox()) setTimeout(() => inputRef.current && inputRef.current.focus(), 30); }}>
+          <Icon name="keyboard" size={18} />
           <span>{L("Type", "লিখুন")}</span>
+        </button>
+        <button type="button" className="vd-btn end" id="vEndBtn" onClick={closeVoice}>
+          <Icon name="x" size={18} sw={2.6} />
+          <span>{L("End", "শেষ")}</span>
         </button>
       </div>
     </div>

@@ -1,12 +1,11 @@
 // POST /api/receipt  { mime, data (base64) }  ->  { receipt: { type, title, vendor, confirmation, start_date, … } }
-// Reads a photo or PDF of a ticket, hotel voucher or receipt with Gemini. The file is not stored.
+// Reads a photo or PDF of a ticket, hotel voucher or receipt with the AI. The file is not stored.
 
 import { rateLimited } from "@/lib/server/ratelimit";
+import { generateJSON, parseJSON, aiConfigured } from "@/lib/server/ai";
 
 export const dynamic = "force-dynamic";
 
-const MODEL = process.env.GEMINI_MODEL || "gemini-flash-lite-latest";
-const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || "gemini-flash-latest";
 const MAX_BASE64 = 6_000_000; // ~4.4 MB file
 const TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "application/pdf"];
 const KINDS = ["flight", "hotel", "train", "bus", "car", "activity", "restaurant", "other"];
@@ -30,8 +29,7 @@ const str = (v, n) => (typeof v === "string" ? v.trim().slice(0, n) : typeof v =
 const date = (v) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : "");
 
 export async function POST(req) {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) return json(503, { error: "ai_not_configured" });
+  if (!aiConfigured()) return json(503, { error: "ai_not_configured" });
   if (rateLimited("receipt", req, 6)) return json(429, { error: "rate_limited" });
 
   let body;
@@ -45,42 +43,13 @@ export async function POST(req) {
   if (!TYPES.includes(mime)) return json(415, { error: "unsupported_type" });
   if (!data || data.length > MAX_BASE64 || !/^[A-Za-z0-9+/=]+$/.test(data.slice(0, 2000))) return json(413, { error: "bad_file" });
 
-  const payload = JSON.stringify({
-    contents: [{ role: "user", parts: [{ inlineData: { mimeType: mime, data } }, { text: PROMPT }] }],
-    generationConfig: { responseMimeType: "application/json", temperature: 0.1 },
-  });
-
-  let res = null;
-  for (const model of MODEL === FALLBACK_MODEL ? [MODEL] : [MODEL, FALLBACK_MODEL]) {
-    try {
-      res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-        body: payload,
-        cache: "no-store",
-        signal: AbortSignal.timeout(30_000),
-      });
-    } catch {
-      res = null;
-      continue;
-    }
-    if (res.status !== 503 && res.status !== 429) break;
-  }
-  if (!res) return json(502, { error: "upstream_unreachable" });
-  if (res.status === 429) return json(429, { error: "rate_limited" });
-  if (!res.ok) {
-    console.error("Gemini receipt error", res.status, (await res.text().catch(() => "")).slice(0, 300));
-    return json(502, { error: "upstream_error" });
-  }
-
-  const out = await res.json().catch(() => ({}));
-  const text = (out?.candidates?.[0]?.content?.parts || []).filter((p) => !p.thought && typeof p.text === "string").map((p) => p.text).join("");
   let r;
   try {
-    const a = text.indexOf("{"), b = text.lastIndexOf("}");
-    r = JSON.parse(a >= 0 && b > a ? text.slice(a, b + 1) : text);
-  } catch {
-    return json(502, { error: "unreadable" });
+    r = parseJSON(await generateJSON({ messages: [{ role: "user", content: PROMPT }], file: { mime, data }, temperature: 0.1, timeoutMs: 40000 }));
+  } catch (e) {
+    if (e.code === "rate_limited") return json(429, { error: "rate_limited" });
+    if (e instanceof SyntaxError) return json(502, { error: "unreadable" });
+    return json(502, { error: "upstream_error" });
   }
   if (!r || r.is_booking === false) return json(422, { error: "not_a_booking" });
 

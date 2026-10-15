@@ -2,17 +2,16 @@
 // A city guide: things to do, places to eat and places to stay, picked by the AI and then located on
 // the map (with photos where Wikipedia has them), plus the current weather.
 // -> { city: {name, country, lat, lng}, weather: {temp, code}|null, sights: [], food: [], stays: [] }
-// Each city is built once and cached for a week.
+// Each city's picks are made once and cached for a week; locations come from the shared place cache.
 
 import { getAdmin } from "@/lib/supabase/admin";
 import { rateLimited } from "@/lib/server/ratelimit";
 import { resolvePlaces } from "@/lib/server/places";
+import { generateJSON, parseJSON } from "@/lib/server/ai";
 
 export const dynamic = "force-dynamic";
 
 const UA = `Tripo/1.0 (${process.env.NEXT_PUBLIC_SITE_URL || "travel planner"}; ${process.env.NEXT_PUBLIC_CONTACT_EMAIL || "contact via site"})`;
-const MODEL = process.env.GEMINI_MODEL || "gemini-flash-lite-latest";
-const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || "gemini-flash-latest";
 const TTL = 1000 * 60 * 60 * 24 * 7;
 const memory = new Map();
 const building = new Map(); // city key -> promise, so two visitors don't build the same guide twice
@@ -23,13 +22,39 @@ async function getJSON(url, timeout = 8000) {
   return res.json();
 }
 
-async function findCity(q) {
+const cities = new Map(); // city name -> location, remembered while the server runs
+
+async function findCityPhoton(q) {
   const data = await getJSON("https://photon.komoot.io/api/?limit=5&lang=en&q=" + encodeURIComponent(q));
   const feats = (data.features || []).filter((f) => f.geometry);
   const f = feats.find((x) => ["city", "town", "village", "municipality", "island", "county", "state", "region"].includes(x.properties.osm_value) || x.properties.type === "city") || feats[0];
   if (!f) return null;
   const p = f.properties;
   return { name: p.name || q, country: p.country || "", lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0] };
+}
+
+async function findCityNominatim(q) {
+  const data = await getJSON("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=en&addressdetails=1&q=" + encodeURIComponent(q));
+  const r = Array.isArray(data) && data[0];
+  if (!r) return null;
+  const a = r.address || {};
+  return { name: a.city || a.town || a.village || a.state || r.name || q, country: a.country || "", lat: parseFloat(r.lat), lng: parseFloat(r.lon) };
+}
+
+// Finds a city by asking Photon and Nominatim at the same time; the first good answer wins
+// (either can be slow at times). Results are remembered.
+async function findCity(q) {
+  const k = q.trim().toLowerCase();
+  if (cities.has(k)) return cities.get(k);
+  const ok = (fn) => fn(q).then((c) => c || Promise.reject(new Error("none")));
+  let city = null;
+  try {
+    city = await Promise.any([ok(findCityPhoton), ok(findCityNominatim)]);
+  } catch {
+    try { city = await findCityPhoton(q); } catch {}
+  }
+  if (city) cities.set(k, city);
+  return city;
 }
 
 async function nameOf(lat, lng) {
@@ -48,34 +73,16 @@ async function weather(lat, lng) {
   }
 }
 
-async function askGemini(prompt) {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) throw new Error("ai_not_configured");
-  const payload = JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json", temperature: 0.4 } });
-  for (const model of MODEL === FALLBACK_MODEL ? [MODEL] : [MODEL, FALLBACK_MODEL]) {
-    try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-        body: payload,
-        cache: "no-store",
-        signal: AbortSignal.timeout(25_000),
-      });
-      if (!res.ok) continue;
-      const out = await res.json();
-      const text = (out?.candidates?.[0]?.content?.parts || []).filter((p) => !p.thought && typeof p.text === "string").map((p) => p.text).join("");
-      const a = text.indexOf("{"), b = text.lastIndexOf("}");
-      return JSON.parse(a >= 0 && b > a ? text.slice(a, b + 1) : text);
-    } catch {}
-  }
-  throw new Error("ai_unavailable");
+async function askAI(prompt) {
+  // Long lists: Gemini Flash-Lite writes these several times faster, so it goes first here (OpenAI is the backup).
+  return parseJSON(await generateJSON({ messages: [{ role: "user", content: prompt }], temperature: 0.4, timeoutMs: 20000, prefer: "gemini" }));
 }
 
 const s = (v, n) => (typeof v === "string" ? v.trim().slice(0, n) : "");
 
 async function buildGuide(city) {
   const where = city.name + (city.country ? ", " + city.country : "");
-  const data = await askGemini(
+  const data = await askAI(
     `You are a local travel expert. List the best-known places for a visitor to ${where}.\n` +
       "Reply with ONE JSON object only:\n" +
       '{"sights": [{"name","type","why"}], "food": [{"name","type","area","budget","why"}], "stays": [{"name","type","area","budget","why"}]}\n' +
@@ -90,21 +97,73 @@ async function buildGuide(city) {
     food: (Array.isArray(data.food) ? data.food : []).filter((x) => x && x.name).slice(0, 8).map((x) => ({ name: s(x.name, 80), type: s(x.type, 30), area: s(x.area, 40), budget: s(x.budget, 4), why: s(x.why, 90) })),
     stays: (Array.isArray(data.stays) ? data.stays : []).filter((x) => x && x.name).slice(0, 8).map((x) => ({ name: s(x.name, 80), type: s(x.type, 30), area: s(x.area, 40), budget: s(x.budget, 4), why: s(x.why, 90) })),
   };
-  // Find each one on the map. Sights may have a Wikipedia photo; restaurants and hotels come from map data.
+  return lists;
+}
+
+// Places each guide item on the map. Lookups already cached are instant; anything slower than the
+// time budget is sent back as "pending" and the browser finishes it in the background.
+async function locate(lists, city, budgetMs) {
   const flat = [
     ...lists.sights.map((x) => ({ name: x.name, context: city.name, kind: "place" })),
     ...lists.food.map((x) => ({ name: x.name, context: city.name, kind: "hotel" })),
     ...lists.stays.map((x) => ({ name: x.name, context: city.name, kind: "hotel" })),
   ];
-  const found = await resolvePlaces(flat);
+  // Six look-ups at a time (polite to the free services); whatever isn't done by the deadline stays null.
+  const found = new Array(flat.length).fill(null);
+  let next = 0;
+  const worker = async () => {
+    while (next < flat.length) {
+      const i = next++;
+      try { found[i] = (await resolvePlaces([flat[i]]))[0]; } catch { found[i] = { ok: false }; }
+    }
+  };
+  const all = Promise.all(Array.from({ length: 6 }, worker));
+  await Promise.race([all, new Promise((r) => setTimeout(r, budgetMs))]);
   // Drop map matches that landed far outside the city (a different place with the same name).
   const near = (i) => i && i.ok && i.lat != null && Math.hypot((i.lat - city.lat) * 111, (i.lng - city.lng) * 111 * Math.cos((city.lat * Math.PI) / 180)) < 80;
   let k = 0;
   const attach = (x) => {
     const i = found[k++];
+    if (i === null) return { ...x, pending: true };
     return near(i) ? { ...x, lat: i.lat, lng: i.lng, photo: i.photo || "", desc: i.desc || "", url: i.url || "" } : { ...x, photo: i && i.ok && i.lat == null ? i.photo || "" : "" };
   };
   return { sights: lists.sights.map(attach), food: lists.food.map(attach), stays: lists.stays.map(attach) };
+}
+
+// A city's saved picks (memory first, then the database), or null.
+async function cachedGuide(key) {
+  const hit = memory.get(key);
+  if (hit && Date.now() - hit.at < TTL) return hit.guide;
+  const admin = getAdmin();
+  if (!admin) return null;
+  try {
+    const { data } = await admin.from("place_cache").select("data,updated_at").eq("key", key).maybeSingle();
+    if (data && Date.now() - new Date(data.updated_at).getTime() < TTL) {
+      memory.set(key, { at: Date.now(), guide: data.data });
+      return data.data;
+    }
+  } catch {}
+  return null;
+}
+
+// Starts (or joins) building a city's picks; saves them when done.
+function startGuide(key, city) {
+  if (!building.has(key)) {
+    building.set(
+      key,
+      buildGuide(city)
+        .then((g) => {
+          if (g.sights.length || g.food.length || g.stays.length) {
+            memory.set(key, { at: Date.now(), guide: g });
+            const admin = getAdmin();
+            if (admin) admin.from("place_cache").upsert({ key, data: g, updated_at: new Date().toISOString() }).then(() => {}, () => {});
+          }
+          return g;
+        })
+        .finally(() => building.delete(key))
+    );
+  }
+  return building.get(key);
 }
 
 export async function GET(req) {
@@ -115,6 +174,11 @@ export async function GET(req) {
   const qlng = parseFloat(url.searchParams.get("lng"));
   const hasPoint = Number.isFinite(qlat) && Number.isFinite(qlng) && Math.abs(qlat) <= 90 && Math.abs(qlng) <= 180;
   if (!q && !hasPoint) return Response.json({ error: "missing_place" }, { status: 400 });
+
+  // A typed city: if its picks aren't saved yet, the AI starts on them while we look the city up.
+  const qKey = q ? "guide2|q|" + q.toLowerCase().slice(0, 120) : "";
+  let guide = q ? await cachedGuide(qKey) : null;
+  const pending = q && !guide ? startGuide(qKey, { name: q, country: "" }).catch(() => null) : null;
 
   let city;
   try {
@@ -127,42 +191,14 @@ export async function GET(req) {
   }
   if (!city) return Response.json({ error: "not_found" }, { status: 404 });
 
-  const key = "guide|" + (city.name + "|" + city.country).toLowerCase().slice(0, 150);
-  let guide = null;
-  const hit = memory.get(key);
-  if (hit && Date.now() - hit.at < TTL) guide = hit.guide;
-  const admin = getAdmin();
-  if (!guide && admin) {
-    try {
-      const { data } = await admin.from("place_cache").select("data,updated_at").eq("key", key).maybeSingle();
-      if (data && Date.now() - new Date(data.updated_at).getTime() < TTL) {
-        guide = data.data;
-        memory.set(key, { at: Date.now(), guide });
-      }
-    } catch {}
-  }
-
   const wPromise = weather(city.lat, city.lng);
-  if (!guide) {
-    if (!building.has(key)) {
-      building.set(
-        key,
-        buildGuide(city)
-          .then((g) => {
-            if (g.sights.length || g.food.length || g.stays.length) {
-              memory.set(key, { at: Date.now(), guide: g });
-              if (admin) admin.from("place_cache").upsert({ key, data: g, updated_at: new Date().toISOString() }).then(() => {}, () => {});
-            }
-            return g;
-          })
-          .finally(() => building.delete(key))
-      );
-    }
-    try {
-      guide = await building.get(key);
-    } catch {
-      return Response.json({ city, weather: await wPromise, sights: [], food: [], stays: [], unavailable: true });
-    }
+  if (!guide && pending) guide = await pending;
+  if (!guide && !q) {
+    const key = "guide2|" + (city.name + "|" + city.country).toLowerCase().slice(0, 150);
+    guide = (await cachedGuide(key)) || (await startGuide(key, city).catch(() => null));
   }
-  return Response.json({ city, weather: await wPromise, ...guide });
+  if (!guide) return Response.json({ city, weather: await wPromise, sights: [], food: [], stays: [], unavailable: true });
+
+  const located = await locate(guide, city, 4000);
+  return Response.json({ city, weather: await wPromise, ...located });
 }

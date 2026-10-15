@@ -8,7 +8,7 @@ export const metadata = {
 
 export default function TermsPage() {
   return (
-    <LegalPage title="Terms of Use" updated="11 October 2026">
+    <LegalPage title="Terms of Use" updated="15 October 2026">
       <p>
         These terms apply when you use Tripo, a travel planning website run by {site.operator}. By using Tripo you
         agree to them. If you don&apos;t agree, please don&apos;t use the service.
@@ -23,7 +23,8 @@ export default function TermsPage() {
 
       <h2>AI suggestions can be wrong</h2>
       <p>
-        Tripo&apos;s answers, city guides and the details it reads from uploaded bookings are produced by AI. They
+        Tripo&apos;s answers (typed or spoken), city guides and the details it reads from uploaded bookings are
+        produced by AI. They
         can be out of date, incomplete or simply wrong, including flight routes and times, hotel names, opening
         hours, visa rules, safety advice and where a place is shown on the map. Always check important
         details with the airline, hotel, booking site or official government sources before you travel or pay for
