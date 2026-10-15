@@ -36,7 +36,7 @@ function ExploreCard({ item, group, city }) {
   return (
     <div className="ex-card" data-name={item.name}>
       <div className="ex-media" role="button" tabIndex={0} onClick={open} onKeyDown={(e) => { if (e.key === "Enter") open(); }}>
-        <PlacePhoto info={item.photo ? { photo: item.photo } : null} scene={isStay ? "hotel" : group === "food" ? "city" : ""} name={item.name + " " + city.name} />
+        <PlacePhoto info={item.photo ? { photo: item.photo, photoArea: item.photoArea || "", photoNear: !!item.photoNear } : null} q={{ name: item.name, context: city.name, kind: isStay || group === "food" ? "hotel" : "place" }} />
         <SaveButton kind={kind} data={data} onImage />
         {item.lat == null && !item.pending && <span className="ex-nopin">{L("Not on map", "ম্যাপে নেই")}</span>}
       </div>
@@ -79,14 +79,14 @@ export function ExploreScreen() {
       ["sights", "food", "stays"].forEach((g) => (data[g] || []).forEach((it) => {
         const k = keyFor(g === "stays" ? "hotel" : "place", g === "stays" ? { name: it.name, city: data.city.name } : { name: it.name, country: data.city.name });
         it.key = k;
-        if (it.pending) return;
-        seed[k] = it.lat != null || it.photo ? { ok: true, lat: it.lat ?? null, lng: it.lng ?? null, photo: it.photo || "", desc: it.desc || "", url: it.url || "", title: it.name } : { ok: false };
+        if (it.pending || it.photoPending) return;
+        seed[k] = it.lat != null || it.photo ? { ok: true, lat: it.lat ?? null, lng: it.lng ?? null, photo: it.photo || "", photoArea: it.photoArea || "", photoNear: !!it.photoNear, desc: it.desc || "", url: it.url || "", title: it.name } : { ok: false };
       }));
       useTripo.setState({ placeInfo: { ...useTripo.getState().placeInfo, ...seed } });
       // Anything the server couldn't place in time is looked up now; pins appear as each one is found.
       const later = [];
       ["sights", "food", "stays"].forEach((g) => (data[g] || []).forEach((it) => {
-        if (!it.pending) return;
+        if (!it.pending && !it.photoPending) return;
         delete useTripo.getState().placeInfo[it.key];
         later.push({ name: it.name, context: data.city.name, kind: g === "sights" ? "place" : "hotel" });
       }));
@@ -201,7 +201,7 @@ function IdeaCard({ idea, lang }) {
   return (
     <article className="idea-card" data-id={idea.id}>
       <div className="idea-media" role="button" tabIndex={0} onClick={() => showPlace("place", { name: idea.place, country: idea.country, scene: idea.scene, tagline: idea.sub[lang] }, idea.country)}>
-        <PlacePhoto info={info} scene={idea.scene} name={idea.place + " " + idea.country} />
+        <PlacePhoto info={info} q={{ name: idea.place, context: idea.country, kind: "place" }} />
         <span className="idea-days">{days}</span>
         <SaveButton kind="place" data={{ name: idea.place, country: idea.country, scene: idea.scene, tagline: idea.sub.en, best_time: "" }} onImage />
         <div className="idea-ov">
@@ -219,11 +219,7 @@ function IdeaCard({ idea, lang }) {
 
 export function InspirationScreen() {
   const lang = useLang();
-  const ready = useTripo((s) => s.ready);
   const [cat, setCat] = useState("all");
-  useEffect(() => {
-    if (ready) useTripo.getState().resolvePlaces(INSPIRATION.map((x) => ({ name: x.place, context: x.country, kind: "place" })));
-  }, [ready]);
   const list = INSPIRATION.filter((x) => cat === "all" || x.cats.includes(cat));
   return (
     <div className="view active" id="view-inspiration">

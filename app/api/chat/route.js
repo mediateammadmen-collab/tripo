@@ -1,5 +1,5 @@
 // Tripo AI endpoint: POST /api/chat  { messages: [{ role: "user"|"assistant", content }] }  ->  { text }
-// Uses OpenAI (with Gemini as a backup) through lib/server/ai.js. API keys never reach the browser.
+// Uses OpenAI through lib/server/ai.js. API keys never reach the browser.
 
 import { rateLimited } from "@/lib/server/ratelimit";
 import { generateJSON, aiConfigured } from "@/lib/server/ai";

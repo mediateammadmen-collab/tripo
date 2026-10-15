@@ -3,13 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/ui/Icon";
-import { Scene } from "@/components/ui/Scene";
+import Photo from "@/components/ui/Photo";
 import { showPlace } from "@/components/chat/Cards";
 import MapView from "@/components/map/MapView";
 import { useTripo } from "@/lib/tripo/store";
 import { useLang, useAskTripo, useOpenChat } from "@/lib/tripo/hooks";
 import { usePins } from "@/lib/tripo/usePins";
-import { pointsFromTrip } from "@/lib/tripo/places";
+import { pointsFromTrip, placeKey } from "@/lib/tripo/places";
 import { L, getLang } from "@/lib/tripo/i18n";
 import { slug, fmtDate, ymd, validDateAny } from "@/lib/tripo/util";
 import { itemTitle, itemSub, itemLink, tripDates, countLine, tripPrompt } from "@/lib/tripo/items";
@@ -26,11 +26,18 @@ function download(filename, html) {
   }
 }
 
+// The real photo we already found for a place (used in the downloadable plan).
+function photoOf(kind, d) {
+  const info = useTripo.getState().placeInfo;
+  const q = kind === "trip" ? { name: d.name, context: "", kind: "place" } : { name: d.name || "", context: kind === "hotel" ? d.city || "" : d.country || d.context || "", kind: kind === "hotel" ? "hotel" : "place" };
+  const i = info[placeKey(q)];
+  return i && i.photo ? i.photo : "";
+}
+
 function ItemThumb({ it }) {
   const d = it.data || {};
   if (it.kind === "flight") return <div className="sv-thumb fl"><Icon name="plane" size={22} /></div>;
-  if (it.kind === "hotel") return <Scene className="sv-thumb" scene="hotel" name={d.name} />;
-  return <Scene className="sv-thumb" scene={d.scene} name={(d.name || "") + " " + (d.country || d.context || "")} />;
+  return <Photo className="sv-thumb" q={{ name: d.name || "", context: it.kind === "hotel" ? d.city || "" : d.country || d.context || "", kind: it.kind === "hotel" ? "hotel" : "place" }} icon={it.kind === "hotel" ? "bed" : "pin"} caption={false} />;
 }
 
 /* ---------------- lists ---------------- */
@@ -69,7 +76,7 @@ function SavedRow({ it }) {
 function EmptyState({ title, text, btnLabel, onClick }) {
   return (
     <div className="trips-empty">
-      <Scene className="trips-empty-art" scene="island" name="empty-state" />
+      <Photo className="trips-empty-art" q={{ name: "Saint Martin's Island", context: "Bangladesh", kind: "place" }} caption={false} />
       <b>{title}</b>
       <p>{text}</p>
       {btnLabel && <button type="button" className="book-cta" style={{ width: "auto", display: "inline-flex", padding: "11px 18px" }} onClick={onClick}>{btnLabel}</button>}
@@ -80,7 +87,7 @@ function EmptyState({ title, text, btnLabel, onClick }) {
 function DownloadBar() {
   const onClick = () => {
     const { trips, saved } = useTripo.getState();
-    download("my-plan-tripo.html", planDocHTML(L("My plan", "আমার প্ল্যান"), trips, saved));
+    download("my-plan-tripo.html", planDocHTML(L("My plan", "আমার প্ল্যান"), trips, saved, photoOf));
   };
   return (
     <button type="button" className="dl-btn" onClick={onClick}>
@@ -94,7 +101,7 @@ function TripCard({ tr, onOpen }) {
   return (
     <button type="button" className="trip-card" onClick={onOpen}>
       <div className="trip-banner">
-        <Scene className="scene-fill" name={tr.dest || tr.name} />
+        <Photo q={{ name: tr.dest || tr.name, context: "", kind: "place" }} icon="suitcase" />
         {tr.role === "member" && <span className="trip-flag">{L("Shared with you", "আপনার সাথে শেয়ার করা")}</span>}
         {tr.role !== "member" && tr.shareMode && tr.shareMode !== "off" && <span className="trip-flag">{tr.shareMode === "edit" ? L("Planning together", "একসাথে প্ল্যান") : L("Shared", "শেয়ার করা")}</span>}
         <div className="ov">
@@ -393,7 +400,7 @@ function TripDetail({ tr }) {
     <>
       <div className="trip-card" style={{ cursor: "default" }}>
         <div className="trip-banner tall">
-          <Scene className="scene-fill" name={tr.dest || tr.name} />
+          <Photo q={{ name: tr.dest || tr.name, context: "", kind: "place" }} icon="suitcase" />
           {isMember && <span className="trip-flag">{L("Shared with you", "আপনার সাথে শেয়ার করা")}</span>}
           <div className="ov">
             <div className="place-name" style={{ fontSize: 20 }}>{tr.name}</div>
@@ -403,7 +410,7 @@ function TripDetail({ tr }) {
         <div className="trip-actions">
           <button type="button" className="book-cta" style={{ margin: 0, flex: "1 1 100%" }} onClick={() => ask(tripPrompt(tr, items))}>✨ {L("Plan it with Tripo", "Tripo দিয়ে প্ল্যান করুন")}</button>
           <button type="button" className="pa-btn" id="shareTripBtn" onClick={() => s.openShare(tr.id)}>{L("Share", "শেয়ার")}</button>
-          <button type="button" className="pa-btn" aria-label={L("Download", "ডাউনলোড")} onClick={() => download((slug(tr.name) || "trip") + "-tripo.html", planDocHTML(tr.name, [tr], []))}>⬇ {L("Download", "ডাউনলোড")}</button>
+          <button type="button" className="pa-btn" aria-label={L("Download", "ডাউনলোড")} onClick={() => download((slug(tr.name) || "trip") + "-tripo.html", planDocHTML(tr.name, [tr], [], photoOf))}>⬇ {L("Download", "ডাউনলোড")}</button>
           {edit && <button type="button" className="pa-btn" onClick={() => s.openTripForm(tr.id)}>{L("Edit", "এডিট")}</button>}
           <button
             type="button"

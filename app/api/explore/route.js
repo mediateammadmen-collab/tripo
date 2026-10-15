@@ -74,8 +74,7 @@ async function weather(lat, lng) {
 }
 
 async function askAI(prompt) {
-  // Long lists: Gemini Flash-Lite writes these several times faster, so it goes first here (OpenAI is the backup).
-  return parseJSON(await generateJSON({ messages: [{ role: "user", content: prompt }], temperature: 0.4, timeoutMs: 20000, prefer: "gemini" }));
+  return parseJSON(await generateJSON({ messages: [{ role: "user", content: prompt }], temperature: 0.4, timeoutMs: 25000 }));
 }
 
 const s = (v, n) => (typeof v === "string" ? v.trim().slice(0, n) : "");
@@ -114,7 +113,7 @@ async function locate(lists, city, budgetMs) {
   const worker = async () => {
     while (next < flat.length) {
       const i = next++;
-      try { found[i] = (await resolvePlaces([flat[i]]))[0]; } catch { found[i] = { ok: false }; }
+      try { found[i] = (await resolvePlaces([flat[i]], { fast: true }))[0]; } catch { found[i] = { ok: false }; }
     }
   };
   const all = Promise.all(Array.from({ length: 6 }, worker));
@@ -124,8 +123,11 @@ async function locate(lists, city, budgetMs) {
   let k = 0;
   const attach = (x) => {
     const i = found[k++];
-    if (i === null) return { ...x, pending: true };
-    return near(i) ? { ...x, lat: i.lat, lng: i.lng, photo: i.photo || "", desc: i.desc || "", url: i.url || "" } : { ...x, photo: i && i.ok && i.lat == null ? i.photo || "" : "" };
+    if (i === null || (!i.ok && i.photoPending)) return { ...x, pending: true };
+    // Located, but its photo is still being found: the pin shows now and the browser fetches the photo.
+    if (i.photoPending) return near(i) ? { ...x, lat: i.lat, lng: i.lng, photoPending: true, desc: i.desc || "", url: i.url || "" } : { ...x, pending: true };
+    const pic = i && i.ok ? { photo: i.photo || "", photoArea: i.photoArea || "", photoNear: !!i.photoNear } : { photo: "" };
+    return near(i) ? { ...x, lat: i.lat, lng: i.lng, ...pic, desc: i.desc || "", url: i.url || "" } : { ...x, ...(i && i.ok && i.lat == null ? pic : { photo: "" }) };
   };
   return { sights: lists.sights.map(attach), food: lists.food.map(attach), stays: lists.stays.map(attach) };
 }

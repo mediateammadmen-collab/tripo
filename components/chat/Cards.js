@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Icon from "@/components/ui/Icon";
-import { Scene } from "@/components/ui/Scene";
+import Photo from "@/components/ui/Photo";
 import { useTripo } from "@/lib/tripo/store";
 import { L } from "@/lib/tripo/i18n";
 import { addDays, validDate, ymd, nightsBetween } from "@/lib/tripo/util";
@@ -10,14 +10,9 @@ import { AIRPORTS, cityToIata, tripUrl, tripRouteUrl, bookingUrl, runtime } from
 import { itemKey } from "@/lib/tripo/items";
 import { placeQuery, placeKey } from "@/lib/tripo/places";
 
-/* A real photo when we found one (Wikipedia), otherwise Tripo's drawn illustration. */
-export function PlacePhoto({ info, scene, name }) {
-  const [broken, setBroken] = useState(false);
-  if (info && info.photo && !broken) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img className="place-photo" src={info.photo} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setBroken(true)} />;
-  }
-  return <Scene className="scene-fill" scene={scene} name={name} />;
+/* A real photo of a place (see components/ui/Photo.js). */
+export function PlacePhoto({ info, q }) {
+  return <Photo info={info} q={q} />;
 }
 
 // Opens the details panel for a place and points the map at it.
@@ -66,18 +61,18 @@ export function MoreButton({ label, prompt }) {
 function PlaceCard({ p, solo }) {
   const send = useTripo((s) => s.sendChatMessage);
   const name = p.name || "";
-  const data = { name, country: p.country || "", scene: p.scene || "", tagline: p.tagline || "", best_time: p.best_time || "" };
+  const data = { name, city: p.city || "", country: p.country || "", scene: p.scene || "", tagline: p.tagline || "", best_time: p.best_time || "" };
   const key = placeKey(placeQuery("place", p));
   const info = useTripo((s) => s.placeInfo[key]);
   const open = () => showPlace("place", p);
   return (
     <div className={"place-card" + (solo ? " solo" : "")} data-place={key}>
       <div className="place-media" role="button" tabIndex={0} onClick={open} onKeyDown={(e) => { if (e.key === "Enter") open(); }}>
-        <PlacePhoto info={info} scene={p.scene} name={name + " " + (p.country || "")} />
+        <PlacePhoto info={info} q={placeQuery("place", p)} />
         <SaveButton kind="place" data={data} onImage />
         <div className="ov">
           <div className="place-name">{name}</div>
-          {p.country ? <div className="place-country">{p.country}</div> : null}
+          {p.city || p.country ? <div className="place-country">{[p.city, p.country].filter(Boolean).join(", ")}</div> : null}
         </div>
       </div>
       <div className="place-body">
@@ -333,7 +328,7 @@ export function HotelCard({ h }) {
                 return (
                   <div className="hotel-card" key={o.name + i}>
                     <div className="hotel-media" role="button" tabIndex={0} onClick={() => showPlace("hotel", { ...o, city: where }, where)}>
-                      <Scene className="scene-fill" scene="hotel" name={o.name} />
+                      <Photo q={{ name: o.name, context: where, kind: "hotel" }} icon="bed" />
                       <SaveButton kind="hotel" data={data} onImage />
                     </div>
                     <div className="hotel-body">

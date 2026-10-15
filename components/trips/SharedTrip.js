@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/ui/Icon";
-import { Scene } from "@/components/ui/Scene";
+import Photo from "@/components/ui/Photo";
 import MapView from "@/components/map/MapView";
 import { LogoMark } from "@/components/shell/AppShell";
 import { Toast } from "@/components/shell/Overlays";
@@ -21,7 +21,7 @@ function Row({ it }) {
   return (
     <div className="stop-row">
       <div className="stop-thumb">
-        {it.kind === "flight" ? <div className="sv-thumb fl"><Icon name="plane" size={22} /></div> : <Scene className="sv-thumb" scene={it.kind === "hotel" ? "hotel" : d.scene} name={(d.name || "") + " " + (d.country || d.context || "")} />}
+        {it.kind === "flight" ? <div className="sv-thumb fl"><Icon name="plane" size={22} /></div> : <Photo className="sv-thumb" q={{ name: d.name || "", context: it.kind === "hotel" ? d.city || "" : d.country || d.context || "", kind: it.kind === "hotel" ? "hotel" : "place" }} caption={false} />}
       </div>
       <div className="sv-main">
         <div className="sv-title">{itemTitle(it)}</div>
@@ -73,7 +73,7 @@ export default function SharedTrip({ trip, mode, shareId, pins }) {
       <div className="shared-body">
         <div className="trip-card" style={{ cursor: "default" }}>
           <div className="trip-banner tall">
-            <Scene className="scene-fill" name={trip.dest || trip.name} />
+            <Photo q={{ name: trip.dest || trip.name, context: "", kind: "place" }} icon="suitcase" />
             <div className="ov">
               <h1 className="place-name" style={{ fontSize: 22, margin: 0 }}>{trip.name}</h1>
               <div className="trip-chips">{chips.map((c) => <span key={c}>{c}</span>)}</div>

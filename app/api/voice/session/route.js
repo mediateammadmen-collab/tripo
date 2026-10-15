@@ -18,6 +18,7 @@ const PLACE = {
   type: "object",
   properties: {
     name: { type: "string", description: "Usual English name a map search would find" },
+    city: { type: "string", description: "Town or city the place is in; always set for restaurants, hotels and sights in a city" },
     country: { type: "string" },
     scene: { type: "string", enum: ["beach", "mountain", "city", "temple", "desert", "forest", "island", "oldtown", "river", "snow"] },
     tagline: { type: "string", description: "Max 8 words, in the traveler's language" },

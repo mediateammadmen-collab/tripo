@@ -40,10 +40,10 @@ function FooterNav() {
   const pathname = usePathname();
   return (
     <nav className="footer-nav" id="footerNav">
-      <div className="side-brand">
+      <Link href="/" className="side-brand" aria-label="Tripo home">
         <LogoMark />
         <b>Tripo</b>
-      </div>
+      </Link>
       {NAV.map((n) => {
         const active = pathname === n.href || pathname.startsWith(n.href + "/");
         return (

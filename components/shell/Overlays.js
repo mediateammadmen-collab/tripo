@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/ui/Icon";
-import { Scene, RichText } from "@/components/ui/Scene";
+import { RichText } from "@/components/ui/Scene";
+import Photo from "@/components/ui/Photo";
 import { useTripo } from "@/lib/tripo/store";
 import { useLang, useOpenChat, useAskTripo } from "@/lib/tripo/hooks";
 import { L, t } from "@/lib/tripo/i18n";
@@ -53,10 +55,10 @@ export function Drawer() {
       <div className={"drawer-overlay" + (open ? " open" : "")} id="drawerOverlay" onClick={close} />
       <div className={"drawer" + (open ? " open" : "")} id="drawer">
         <div className="drawer-head">
-          <div className="wordmark">
+          <Link href="/" className="wordmark" onClick={close} aria-label="Tripo home">
             <Icon name="sparkSolid" size={17} />
             <span>Tripo</span>
-          </div>
+          </Link>
           <button className="close-x" id="drawerCloseBtn" aria-label="Close menu" onClick={close}>
             <Icon name="x" size={14} />
           </button>
@@ -195,7 +197,7 @@ export function TripPicker() {
                   close();
                 }}
               >
-                <Scene className="sv-thumb" name={tr.dest || tr.name} />
+                <Photo className="sv-thumb" q={{ name: tr.dest || tr.name, context: "", kind: "place" }} caption={false} />
                 <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
                   <div className="sv-title">{tr.name}</div>
                   <div className="sv-sub">{tripDates(tr) || tr.dest || ""}</div>
@@ -317,7 +319,7 @@ export function PlaceSheet() {
   const d = sheet.data || {};
   const name = sheet.name;
   const kind = sheet.kind === "hotel" ? "hotel" : "place";
-  const saveData = kind === "hotel" ? d : { name, country: d.country || d.context || "", scene: d.scene || "", tagline: d.tagline || "", best_time: d.best_time || "" };
+  const saveData = kind === "hotel" ? d : { name, city: d.city || "", country: d.country || d.context || "", scene: d.scene || "", tagline: d.tagline || "", best_time: d.best_time || "" };
   const tripKind = sheet.kind === "stop" ? "place" : kind;
   const where = sheet.query && sheet.query.context ? sheet.query.context : "";
   const go = (text) => { close(); useTripo.getState().setMapOpen(false); ask(text); };
@@ -325,13 +327,13 @@ export function PlaceSheet() {
     <div className="modal-overlay open" id="placeOverlay" onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
       <div className="modal place-sheet">
         <div className="ps-media">
-          <PlacePhoto info={info} scene={kind === "hotel" ? "hotel" : d.scene} name={name + " " + where} />
+          <PlacePhoto info={info} q={sheet.query} />
           <button className="close-x ps-close" aria-label="Close" onClick={close}><Icon name="x" size={16} sw={2.2} /></button>
           <SaveButton kind={kind} data={saveData} onImage />
         </div>
         <div className="ps-body">
           <h3>{name}</h3>
-          <div className="ps-sub">{[kind === "hotel" ? [d.type, d.area].filter(Boolean).join(" · ") : info && info.short, where].filter(Boolean).join(" · ")}</div>
+          <div className="ps-sub">{[kind === "hotel" ? [d.type, d.area].filter(Boolean).join(" · ") : info && info.short, where].filter(Boolean).filter((x, i, a) => !(i > 0 && a[0].includes(x))).join(" · ")}</div>
           {d.tagline ? <p className="ps-tag">{d.tagline}</p> : null}
           {d.why ? <p className="ps-tag">{d.why}</p> : null}
           {info && info.desc ? <p className="ps-desc">{info.desc}</p> : null}

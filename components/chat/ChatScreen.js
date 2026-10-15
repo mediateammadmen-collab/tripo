@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/ui/Icon";
-import { Scene, RichText } from "@/components/ui/Scene";
+import { RichText } from "@/components/ui/Scene";
+import Photo from "@/components/ui/Photo";
 import { useTripo } from "@/lib/tripo/store";
 import { useLang, useMedia } from "@/lib/tripo/hooks";
 import { usePins } from "@/lib/tripo/usePins";
@@ -11,7 +13,7 @@ import { pointsFromBlocks } from "@/lib/tripo/places";
 import { accountsEnabled } from "@/lib/supabase/client";
 import MapView from "@/components/map/MapView";
 import { L, t } from "@/lib/tripo/i18n";
-import { CONTENT, WELCOME_IDEAS } from "@/lib/tripo/content";
+import { CONTENT, WELCOME_IDEAS, CARD_PHOTOS } from "@/lib/tripo/content";
 import { runtime, whatsappUrl } from "@/lib/tripo/travel";
 import { openVoice } from "@/lib/tripo/voice";
 import { Places, Itinerary, FlightCard, HotelCard, showPlace } from "./Cards";
@@ -67,7 +69,7 @@ function QuickChips() {
       <div className="wl-ideas">
         {WELCOME_IDEAS.map((x) => (
           <button key={x.name} type="button" className="wl-idea" onClick={() => send(x.ask[lang])}>
-            <Scene className="wl-art" scene={x.scene} name={x.name} />
+            <Photo className="wl-art" q={{ name: x.name, context: x.country, kind: "place" }} caption={false} />
             <span>{x.title[lang]}</span>
           </button>
         ))}
@@ -94,7 +96,7 @@ function ResultCards({ k }) {
           className="result-card"
           onClick={() => send(L('Tell me more about "' + item.title.en + '"', '"' + item.title.bn + '" সম্পর্কে আরও বলুন'))}
         >
-          <Scene className="result-card-media" name={item.title.en} />
+          <Photo className="result-card-media" q={CARD_PHOTOS[item.title.en] ? { name: CARD_PHOTOS[item.title.en][0], context: CARD_PHOTOS[item.title.en][1], kind: "place" } : null} icon="spark" caption={false} />
           <div className="result-card-body">
             <div className="result-card-tag">{item.tag[lang]}</div>
             <div className="result-card-title">{item.title[lang]}</div>
@@ -334,6 +336,7 @@ function ChatsList({ sub, always, open }) {
     <div className={"chat-subview" + (sub === "list" ? " active" : "")} id="chatsList">
       <div className="head">
         <button className="head-btn" id="menuBtn" aria-label="Menu" onClick={() => setDrawer(true)}><Icon name="menu" size={21} /></button>
+        <Link href="/" className="head-logo" aria-label="Tripo home"><Icon name="sparkSolid" size={15} color="#FFFC00" /></Link>
         <div className="head-title" style={{ flexGrow: 1 }}><span>{t("tabChats")}</span></div>
         <button className="new-chat-btn" id="newChatBtn" onClick={() => { useTripo.getState().newChat(); open("ai"); }}>
           <Icon name="plus" size={15} sw={2.4} /> {L("New chat", "নতুন চ্যাট")}

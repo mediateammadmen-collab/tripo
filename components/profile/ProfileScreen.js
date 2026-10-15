@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/ui/Icon";
-import { Scene } from "@/components/ui/Scene";
+import Photo from "@/components/ui/Photo";
 import { openExpert } from "@/components/chat/ChatScreen";
 import { useTripo } from "@/lib/tripo/store";
 import { useLang, useAskTripo } from "@/lib/tripo/hooks";
@@ -88,7 +88,7 @@ export default function ProfileScreen() {
                 onClick={() => ask(L("Tell me more about ", "সম্পর্কে আরও বলুন: ") + it.data.name)}
               >
                 <div className="ig-highlight-ring">
-                  <Scene className="ig-highlight-fill" style={{ overflow: "hidden" }} scene={it.data.scene} name={it.data.name + " " + (it.data.country || "")} />
+                  <Photo className="ig-highlight-fill" q={{ name: it.data.name, context: it.data.country || "", kind: "place" }} caption={false} />
                 </div>
                 <div className="ig-highlight-label">{it.data.name}</div>
               </button>
@@ -105,7 +105,7 @@ export default function ProfileScreen() {
         <div className="ig-grid" id="tripGrid">
           {trips.map((tr) => (
             <button key={tr.id} type="button" className="ig-grid-item" style={{ border: "none", overflow: "hidden", padding: 0 }} onClick={() => openTrip(tr.id)}>
-              <Scene className="grid-art" name={tr.dest || tr.name} />
+              <Photo className="grid-art" q={{ name: tr.dest || tr.name, context: "", kind: "place" }} icon="suitcase" caption={false} />
               <span style={{ position: "relative", padding: 6 }}>{tr.name}</span>
             </button>
           ))}
