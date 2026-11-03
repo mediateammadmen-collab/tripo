@@ -3,6 +3,7 @@
 // The browser uses it to connect directly (WebRTC); the real API key never leaves the server.
 
 import { rateLimited } from "@/lib/server/ratelimit";
+import { PROVIDER } from "@/lib/server/ai";
 
 export const dynamic = "force-dynamic";
 
@@ -140,7 +141,8 @@ function instructions({ lang, profile, context, homeCity }) {
 }
 
 export async function POST(req) {
-  if (!KEY()) return Response.json({ error: "voice_not_configured" }, { status: 503 });
+  // Live voice is OpenAI only; while Tripo is on Gemini it is paused and the browser's free voice mode is used.
+  if (PROVIDER() !== "openai" || !KEY()) return Response.json({ error: "voice_not_configured" }, { status: 503 });
   if (rateLimited("voice", req, 4)) return Response.json({ error: "rate_limited" }, { status: 429 });
 
   let body = {};

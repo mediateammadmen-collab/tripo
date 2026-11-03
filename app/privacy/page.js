@@ -45,16 +45,16 @@ export default function PrivacyPage() {
       <h2>Chat messages and AI</h2>
       <p>
         When you chat with Tripo, your message, recent conversation and your travel profile are sent through our
-        server to OpenAI so it can write an answer. Our server does not keep a copy; the conversation is saved in
-        your browser, and in your account if you are signed in. OpenAI processes this data under its{" "}
-        <a href="https://openai.com/policies/business-terms/" target="_blank" rel="noopener noreferrer">business terms</a>{" "}
-        and does not use it to train its models by default. Please don&apos;t share passwords, ID or passport numbers,
+        server to Google&apos;s Gemini AI so it can write an answer. Our server does not keep a copy; the conversation is saved in
+        your browser, and in your account if you are signed in. Google processes this data under the{" "}
+        <a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener noreferrer">Gemini API terms</a>
+        , which allow Google to use it to improve its services. Please don&apos;t share passwords, ID or passport numbers,
         payment details or health information in the chat.
       </p>
 
       <h2>Tickets and receipts you upload</h2>
       <p>
-        When you upload a photo or PDF of a booking, it is sent through our server to OpenAI, which reads out details such as the booking reference, dates and price. The file itself is not
+        When you upload a photo or PDF of a booking, it is sent through our server to Google&apos;s Gemini AI, which reads out details such as the booking reference, dates and price. The file itself is not
         stored by Tripo; only the details that were read are saved with your trip. Please don&apos;t upload
         documents that show passport numbers or full card numbers.
       </p>
@@ -71,13 +71,11 @@ export default function PrivacyPage() {
 
       <h2>Voice</h2>
       <p>
-        Live voice only starts when you tap the voice button, and your browser asks for permission to use the
-        microphone first. While a voice conversation is open, your voice is streamed directly to OpenAI&apos;s
-        realtime service so Tripo can hear and answer you, and what you and Tripo say is written into your chat.
-        Tripo does not record or store the audio. A voice conversation ends when you tap End, after two quiet
-        minutes, or after 15 minutes. If live voice isn&apos;t available, Tripo uses your browser&apos;s own speech
-        features instead; some browsers, such as Google Chrome, send that audio to the browser maker to turn it
-        into text. You can always type instead.
+        Voice only starts when you tap the voice button, and your browser asks for permission to use the
+        microphone first. Tripo uses your browser&apos;s own speech features to hear you and to speak; some
+        browsers, such as Google Chrome, send that audio to the browser maker to turn it into text. What you say
+        is then handled like a chat message (see above), and written into your chat. Tripo does not record or
+        store the audio. You can always type instead.
       </p>
 
       <h2>Booking links</h2>

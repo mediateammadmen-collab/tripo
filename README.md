@@ -11,7 +11,8 @@ AI travel agent website (English + বাংলা), built with Next.js (JavaScr
 - **Sharing** — a read-only link for anyone, or "plan together" for signed-in friends.
 - **Accounts** — email + password; trips, saved places and chats sync across devices. Guests can use
   everything except sharing, with data kept in their browser.
-- **Live voice** — talk to Tripo out loud (OpenAI Realtime); places and plans appear on screen while it talks.
+- **Voice** — talk to Tripo out loud. On Gemini (the default) it uses the browser's free voice; live voice
+  (OpenAI Realtime, places and plans appear on screen while it talks) is paused unless `AI_PROVIDER=openai`.
 - Flight and hotel search links (Trip.com, Booking.com), English + বাংলা.
 
 ## Run on your computer
@@ -39,7 +40,7 @@ email sender only allows a few emails per hour; connect your own SMTP service be
 | `app/page.js`, `app/signup`, `app/login` | Landing page, travel-style questions, sign in / create account |
 | `app/(app)/…` | The app screens: `/chat`, `/explore`, `/agent`, `/inspiration`, `/trips`, `/profile` |
 | `app/t/[shareId]` | Public page for a shared trip |
-| `app/api/chat` | AI chat (OpenAI — see `lib/server/ai.js`) |
+| `app/api/chat` | AI chat (Gemini by default — see `lib/server/ai.js`) |
 | `app/api/voice/session` | Starts a live voice conversation (short-lived OpenAI Realtime key) |
 | `app/api/places` | Finds a place's location, photo and description (Wikipedia + OpenStreetMap) |
 | `app/api/explore` | City guide: AI-picked sights, food and stays, placed on the map, plus weather |
@@ -53,7 +54,7 @@ email sender only allows a few emails per hour; connect your own SMTP service be
 | `lib/tripo/storage.js`, `cloud.js` | Browser storage and account sync (Supabase) |
 | `lib/tripo/trips.js`, `places.js`, `items.js` | Trip model, map look-up keys, saved-item helpers |
 | `lib/tripo/ai.js`, `i18n.js`, `content.js` | AI prompt, interface text (English + বাংলা), starter content |
-| `lib/server/ai.js` | One connection for all AI requests (OpenAI, with a backup model) |
+| `lib/server/ai.js` | One connection for all AI requests (Gemini or OpenAI, picked by `AI_PROVIDER`, with a backup model) |
 | `lib/server/places.js`, `ratelimit.js` | Server-side place look-up with caching; request limiter |
 | `lib/tripo/voice.js`, `voice-browser.js` | Live voice (WebRTC + tools that show cards), and the free browser-voice fallback |
 | `lib/supabase/client.js`, `admin.js` | Browser and server connections to Supabase |
@@ -61,9 +62,18 @@ email sender only allows a few emails per hour; connect your own SMTP service be
 | `scripts/copy-map-worker.mjs` | Copies the map library's worker file into `public/vendor` on install |
 | `legacy/tripmate.html` | The original single-file version (reference only, not served) |
 
+## Versions
+
+- `v1.0-openai` (git tag) — the version that ran fully on OpenAI, with live voice. To go back to it: `git checkout v1.0-openai`,
+  or just set `AI_PROVIDER=openai` in the current version.
+- Current — Gemini for all AI; OpenAI paused.
+
 ## Settings (`.env.local`, and your host's environment variables when deployed)
 
-- `OPENAI_API_KEY` (or `CHATGPT_API_KEY`) — secret, server only. Powers chat, guides, receipts and live voice.
+- `AI_PROVIDER` — `gemini` (default) or `openai`. Only the chosen one is ever used.
+- `GEMINI_API_KEY` — secret, server only. Powers chat, guides and receipts on Gemini.
+  Optional: `GEMINI_MODEL` (default `gemini-flash-lite-latest`), `GEMINI_FALLBACK_MODEL` (default `gemini-flash-latest`).
+- `OPENAI_API_KEY` (or `CHATGPT_API_KEY`) — secret, server only. Only used when `AI_PROVIDER=openai`; then it also powers live voice.
   Optional: `OPENAI_MODEL` (default `gpt-5.4-mini`), `OPENAI_REALTIME_MODEL` (default `gpt-realtime-2.1`),
   `OPENAI_VOICE` (default `marin`).
 - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY` — Supabase project
@@ -81,13 +91,13 @@ After changing `.env.local`, restart `npm run dev`.
 1. Put the project on GitHub (`.env.local` is ignored and stays private).
 2. In Netlify: **Add new site → Import an existing project** → pick the repo.
    Netlify detects Next.js automatically.
-3. In **Site configuration → Environment variables**, add `OPENAI_API_KEY` and any settings above
+3. In **Site configuration → Environment variables**, add `GEMINI_API_KEY` and any settings above
    (set `NEXT_PUBLIC_SITE_URL` to your Netlify address).
 4. Deploy.
 
 ## Free services Tripo relies on
 
-OpenAI (paid, per use — set a monthly limit in your OpenAI billing settings), Supabase free tier (accounts, database), OpenFreeMap (map tiles),
+Google Gemini (free tier, or paid per use), OpenAI only if switched on (paid, per use — set a monthly limit in your OpenAI billing settings), Supabase free tier (accounts, database), OpenFreeMap (map tiles),
 Wikipedia, Wikimedia Commons, Openverse and Photon/Nominatim/OpenStreetMap (places and real photos), Open-Meteo (weather). All have fair-use limits;
 place and city-guide results are cached in the database to stay well within them.
 
