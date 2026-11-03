@@ -7,6 +7,7 @@
 import { getAdmin } from "@/lib/supabase/admin";
 import { rateLimited } from "@/lib/server/ratelimit";
 import { resolvePlaces } from "@/lib/server/places";
+import { readCache } from "@/lib/server/cache";
 import { generateJSON, parseJSON } from "@/lib/server/ai";
 
 export const dynamic = "force-dynamic";
@@ -136,15 +137,11 @@ async function locate(lists, city, budgetMs) {
 async function cachedGuide(key) {
   const hit = memory.get(key);
   if (hit && Date.now() - hit.at < TTL) return hit.guide;
-  const admin = getAdmin();
-  if (!admin) return null;
-  try {
-    const { data } = await admin.from("place_cache").select("data,updated_at").eq("key", key).maybeSingle();
-    if (data && Date.now() - new Date(data.updated_at).getTime() < TTL) {
-      memory.set(key, { at: Date.now(), guide: data.data });
-      return data.data;
-    }
-  } catch {}
+  const row = await readCache(key, "data,updated_at");
+  if (row && Date.now() - new Date(row.updated_at).getTime() < TTL) {
+    memory.set(key, { at: Date.now(), guide: row.data });
+    return row.data;
+  }
   return null;
 }
 
@@ -201,6 +198,6 @@ export async function GET(req) {
   }
   if (!guide) return Response.json({ city, weather: await wPromise, sights: [], food: [], stays: [], unavailable: true });
 
-  const located = await locate(guide, city, 4000);
+  const located = await locate(guide, city, 2000);
   return Response.json({ city, weather: await wPromise, ...located });
 }
